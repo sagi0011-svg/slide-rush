@@ -2,7 +2,9 @@
 
 An endless runner set on a water-park slide, in the spirit of Subway Surfers. Slide down, switch between 3 lanes, jump over mines, duck under arches, grab coins and power-ups, and see how far you get.
 
-**Status:** pre-production. Specs are written; code starts at Milestone 0.
+**Status:** M0 done — project pipeline, tests and auto-deploy are live.
+
+**Play it:** https://sagi0011-svg.github.io/slide-rush/
 
 - Platform: browser, mobile-first (portrait), keyboard supported on desktop
 - Stack: Three.js + TypeScript + Vite, Vitest for tests
@@ -27,7 +29,22 @@ An endless runner set on a water-park slide, in the spirit of Subway Surfers. Sl
 
 ```bash
 npm install
-npm run dev      # local dev server
-npm test         # unit tests
-npm run build    # production build
+npm run dev              # local dev server at http://localhost:5173/slide-rush/
+npm run dev -- --host    # same, but reachable from your phone on the same Wi-Fi
+npm test                 # unit tests
+npm run lint             # eslint + prettier + typecheck
+npm run build            # production build into dist/
+npm run preview          # serve the production build locally
 ```
+
+### Debug flags
+
+| Flag | What it does |
+|---|---|
+| `?debug=1` | Shows fps, simulated time, tick count and the run seed |
+| `?seed=123` | Forces the run seed, so a run can be reproduced exactly |
+
+### Deployment
+
+Every push to `main` runs lint, tests and build in GitHub Actions, then publishes
+`dist/` to GitHub Pages. The Vite `base` is `/slide-rush/`, matching the Pages URL.
