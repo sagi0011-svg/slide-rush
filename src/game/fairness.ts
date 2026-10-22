@@ -29,8 +29,8 @@ import type { Obstacle } from './obstacles';
 
 const ACTIONS: readonly MoveAction[] = ['left', 'right', 'jump', 'slide'];
 
-/** The player may only act every this many ticks: 3 ticks is 1/20 of a second. */
-const ACTION_GRID_TICKS = 3;
+/** The player may only act every this many ticks: 5 ticks is 1/12 of a second. */
+const ACTION_GRID_TICKS = 5;
 
 /** Obstacles further than this from the player cannot be touching them. */
 const NEAR = 4;
@@ -83,12 +83,10 @@ const BUFFER_CODE = { left: 1, right: 2, jump: 3, slide: 4 } as const;
  * same situation twice. Every value advances in fixed steps, so rounding to a
  * thousandth of a unit cannot merge two states that behave differently.
  */
-function stateKey(node: SearchNode): number {
-  const p = node.player;
+function playerKey(p: PlayerState): number {
   const laneOffsetQ = Math.round((p.laneOffset + 1) * 1000); // 0..2000
   const laneTQ = Math.round(Math.min(p.laneT, 1) * 100); // 0..100
   const verticalTicks = Math.min(Math.round(p.verticalTimer / SIM.dt), 47);
-  const sinceTicks = Math.min(Math.round(node.sinceAction / SIM.dt), 28);
 
   let key = laneOffsetQ;
   key = key * 101 + laneTQ;
@@ -96,9 +94,13 @@ function stateKey(node: SearchNode): number {
   key = key * 48 + verticalTicks;
   key = key * 2 + (p.fastDropping ? 1 : 0);
   key = key * 5 + (p.buffered === null ? 0 : BUFFER_CODE[p.buffered]);
-  key = key * 29 + sinceTicks;
   key = key * 3 + (p.laneTarget + 1);
   return key;
+}
+
+function stateKey(node: SearchNode): number {
+  const sinceTicks = Math.min(Math.round(node.sinceAction / SIM.dt), 28);
+  return playerKey(node.player) * 29 + sinceTicks;
 }
 
 function readPath(node: SearchNode): Move[] {
@@ -126,41 +128,72 @@ function isHit(
 }
 
 /**
- * Searches for a survivable path through a stretch of track.
+ * Everything the player could be doing at one point on the slide: a set of
+ * states rather than one, because the search keeps every path that is still
+ * alive.
  *
- * @param obstacles every obstacle in the stretch, in absolute slide units
+ * Handing one of these back lets a pair of chunks carry on from where the
+ * first chunk left off, instead of searching that chunk again for every pair
+ * it takes part in.
  */
-export function findSurvivablePath(
-  obstacles: readonly Obstacle[],
-  options: FairnessOptions,
-): FairnessResult {
-  const { speed, startS, endS, startLane } = options;
-  const maxStates = options.maxStates ?? 2_000_000;
-  const dt = SIM.dt;
-  const step = speed * dt;
+export interface Frontier {
+  readonly nodes: readonly SearchNode[];
+  /** How far along the slide these states are, in units. */
+  readonly s: number;
+  /** Ticks simulated to get here, which sets when a move is next allowed. */
+  readonly tick: number;
+}
 
+/** A player standing in a lane at the start of a stretch, ready to act. */
+export function startingFrontier(startLane: number, startS = 0): Frontier {
   const start = createPlayer();
   start.laneTarget = startLane;
   start.laneFrom = startLane;
   start.laneOffset = startLane;
   start.prevLaneOffset = startLane;
 
-  let frontier: SearchNode[] = [
-    {
-      player: start,
-      sinceAction: DIFFICULTY.minReactionTime,
-      parent: null,
-      move: null,
-      moveAtS: 0,
-    },
-  ];
+  return {
+    nodes: [
+      {
+        player: start,
+        sinceAction: DIFFICULTY.minReactionTime,
+        parent: null,
+        move: null,
+        moveAtS: 0,
+      },
+    ],
+    s: startS,
+    tick: 0,
+  };
+}
 
+export interface AdvanceResult extends FairnessResult {
+  /** Everything still alive at the end, to carry on from. */
+  frontier: Frontier;
+}
+
+/**
+ * Carries a frontier forward along the slide, dropping any path that gets hit.
+ *
+ * @param obstacles every obstacle in the stretch, in absolute slide units
+ */
+export function advanceFrontier(
+  from: Frontier,
+  obstacles: readonly Obstacle[],
+  endS: number,
+  speed: number,
+  maxStates = 2_000_000,
+): AdvanceResult {
+  const dt = SIM.dt;
+  const step = speed * dt;
+
+  let frontier: SearchNode[] = [...from.nodes];
   const seen = new Set<number>();
   let statesExplored = 0;
-  let tick = 0;
+  let tick = from.tick;
   // Every node in a frontier has travelled the same distance, so one running
   // total answers for all of them.
-  let s = startS;
+  let s = from.s;
 
   while (frontier.length > 0 && s < endS) {
     const next: SearchNode[] = [];
@@ -174,7 +207,13 @@ export function findSurvivablePath(
     for (const node of frontier) {
       statesExplored += 1;
       if (statesExplored > maxStates) {
-        return { survivable: false, path: [], statesExplored, exhausted: true };
+        return {
+          survivable: false,
+          path: [],
+          statesExplored,
+          exhausted: true,
+          frontier: { nodes: [], s, tick },
+        };
       }
 
       const canAct = mayAct && node.sinceAction >= DIFFICULTY.minReactionTime;
@@ -207,11 +246,35 @@ export function findSurvivablePath(
     frontier = next;
   }
 
+  const result: Frontier = { nodes: frontier, s, tick };
   const survivor = frontier[0];
   if (survivor !== undefined) {
-    return { survivable: true, path: readPath(survivor), statesExplored, exhausted: false };
+    return {
+      survivable: true,
+      path: readPath(survivor),
+      statesExplored,
+      exhausted: false,
+      frontier: result,
+    };
   }
-  return { survivable: false, path: [], statesExplored, exhausted: false };
+  return { survivable: false, path: [], statesExplored, exhausted: false, frontier: result };
+}
+
+/**
+ * Searches for a survivable path through a stretch of track, starting from a
+ * player standing in one lane.
+ */
+export function findSurvivablePath(
+  obstacles: readonly Obstacle[],
+  options: FairnessOptions,
+): FairnessResult {
+  return advanceFrontier(
+    startingFrontier(options.startLane, options.startS),
+    obstacles,
+    options.endS,
+    options.speed,
+    options.maxStates,
+  );
 }
 
 /** Every lane the player could arrive in. */
@@ -246,4 +309,25 @@ export function pairNeedsSearch(
   // An empty chunk on either side cannot create a new problem.
   if (lastObstacleS === null || firstObstacleS === null) return false;
   return firstObstacleS - lastObstacleS < SAFE_GAP_SECONDS * speed;
+}
+
+/**
+ * Trims a frontier down to the states that actually matter.
+ *
+ * Two paths can arrive in exactly the same position and pose having last
+ * acted at different moments. The one that acted longer ago can do everything
+ * the other can and is free to act sooner, so the other adds nothing and is
+ * dropped. Nothing survivable is lost; there is simply less to carry forward.
+ *
+ * At the handover between two chunks this typically turns a few hundred
+ * states into a few dozen, which is what keeps the pair checks quick.
+ */
+export function collapseFrontier(frontier: Frontier): Frontier {
+  const best = new Map<number, SearchNode>();
+  for (const node of frontier.nodes) {
+    const key = playerKey(node.player);
+    const held = best.get(key);
+    if (held === undefined || node.sinceAction > held.sinceAction) best.set(key, node);
+  }
+  return { nodes: [...best.values()], s: frontier.s, tick: frontier.tick };
 }

@@ -3,7 +3,15 @@ import { COINS, DIFFICULTY, PLAYER, POWERUPS, TRACK } from '../src/config';
 import { CHUNK_LIBRARY } from '../src/game/chunks';
 import { chunkObstacles, coinPlacements, type Chunk } from '../src/game/chunks/types';
 import { breatherForTier, chunksForTier } from '../src/game/chunks/spawner';
-import { findSurvivablePath, pairNeedsSearch, START_LANES } from '../src/game/fairness';
+import {
+  advanceFrontier,
+  collapseFrontier,
+  findSurvivablePath,
+  pairNeedsSearch,
+  startingFrontier,
+  START_LANES,
+  type Frontier,
+} from '../src/game/fairness';
 import { MAX_TIER, tierMaxSpeed } from '../src/game/difficulty';
 import { createBox, obstacleBox, type Obstacle } from '../src/game/obstacles';
 import { boxesOverlap, playerBox } from '../src/game/collisions';
@@ -130,6 +138,29 @@ describe('chunk fairness (SPEC 6)', () => {
     }
     const pairs = [...hardestTier.values()];
 
+    /**
+     * Where the player can be by the time the first chunk and its breather
+     * are behind them, worked out once per chunk, lane and tier rather than
+     * again for every pair that chunk starts.
+     */
+    const endOfChunk = new Map<string, Frontier>();
+    function statesAfter(chunk: Chunk, startLane: number, tier: number): Frontier {
+      const key = `${chunk.id}/${startLane}/${tier}`;
+      const cached = endOfChunk.get(key);
+      if (cached !== undefined) return cached;
+
+      const handover = chunk.length + breatherForTier(tier);
+      const result = advanceFrontier(
+        startingFrontier(startLane),
+        chunkObstacles(chunk, 0),
+        handover,
+        tierMaxSpeed(tier),
+      );
+      const trimmed = collapseFrontier(result.frontier);
+      endOfChunk.set(key, trimmed);
+      return trimmed;
+    }
+
     it('has pairs to check', () => {
       expect(pairs.length).toBeGreaterThan(0);
     });
@@ -147,19 +178,26 @@ describe('chunk fairness (SPEC 6)', () => {
         // checks, so there is nothing new to search.
         if (!pairNeedsSearch(lastOfFirst, firstOfSecond, speed)) return;
 
-        const obstacles = [...firstObstacles, ...secondObstacles];
         for (const startLane of START_LANES) {
-          const result = findSurvivablePath(obstacles, {
+          // Carry on from the end of the first chunk rather than walking it
+          // again: every pair it starts shares the same states.
+          const handover = statesAfter(first, startLane, tier);
+          expect(
+            handover.nodes.length,
+            `${first.id} is not survivable from lane ${startLane} at tier ${tier}`,
+          ).toBeGreaterThan(0);
+
+          const result = advanceFrontier(
+            handover,
+            secondObstacles,
+            secondStart + second.length,
             speed,
-            startS: 0,
-            endS: secondStart + second.length,
-            startLane,
-          });
+          );
           expect(result.exhausted, `${first.id} -> ${second.id}: search gave up`).toBe(false);
           expect(
             result.survivable,
             `${first.id} -> ${second.id} at tier ${tier} is unfair from lane ${startLane}: ` +
-              describePath(obstacles),
+              describePath([...firstObstacles, ...secondObstacles]),
           ).toBe(true);
         }
       });

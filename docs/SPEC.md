@@ -46,6 +46,7 @@ Source of truth for rules and numbers. All numbers are starting values and live 
 - Coin trails in chunks guide the player along the good path (lines, arcs over jumps).
 - **Coin safety (enforced by a test):** no coin may sit somewhere that can only be reached from a pose that hits an obstacle. Coins show the way through; one that led into a wall would do the opposite.
 - MVP target: at least 25 chunks across tiers.
+- **Chunk geometry (enforced by a test):** how much room a chunk must leave is worked out from the speed of the hardest tier it can appear in. Nothing may start so early, or finish so late, that a player arriving from the previous chunk cannot react; two things to deal with must be at least one reaction time apart; and a gate that shuts two lanes needs room for two lane changes. At the top tier, where the speed is flat out and there is no breather, this comes to: nothing before z 12, nothing after z 28, 16 units between obstacles, and no two-lane gate before z 26.
 
 ## 7. Obstacles
 | Type | Placeholder look | How to pass | On hit |

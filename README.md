@@ -2,7 +2,7 @@
 
 An endless runner set on a water-park slide, in the spirit of Subway Surfers. Slide down, switch between 3 lanes, jump over mines, duck under arches, grab coins and power-ups, and see how far you get.
 
-**Status:** M4 done — shield, magnet and speed boost, with pickups on the track.
+**Status:** M5 done — four difficulty tiers and a library of 37 hand-authored chunks.
 
 > Hit feedback: the phone vibrates on a trip or a crash where the browser
 > allows it. Safari on iOS has never supported the Vibration API, and every
