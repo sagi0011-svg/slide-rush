@@ -10,10 +10,11 @@
  * the run's seeded RNG (rule 6).
  */
 
-import { COINS, TRACK } from '../../config';
+import { COINS, POWERUPS, TRACK } from '../../config';
 import type { Rng } from '../rng';
 import type { Obstacle, ObstacleType } from '../obstacles';
-import { createCoinPool, type PooledCoin } from '../coins';
+import { createCoinPool, placeCoin, type PooledCoin } from '../coins';
+import { createPickup, randomPickupType, type Pickup } from '../pickups';
 import type { Chunk } from './types';
 import { CHUNK_LIBRARY } from './index';
 
@@ -27,13 +28,24 @@ export interface Spawner {
   readonly obstacles: readonly PooledObstacle[];
   /** The same, for coins. */
   readonly coins: readonly PooledCoin[];
+  /** The one power-up pickup allowed on the track at a time (SPEC 9). */
+  readonly pickup: Pickup;
+  /**
+   * Asks for a pickup to be put in the next chunk that offers a slot. Ignored
+   * if one is already on the track.
+   */
+  requestPickup(): void;
+  /** True while a pickup is waiting for a slot. */
+  readonly pickupPending: boolean;
   /**
    * Builds track ahead and retires what is behind.
    *
    * @param playerS how far the player has travelled, in units
    * @param tier the current difficulty tier
+   * @param easyOnly keep the track gentle, for the moments around a boost
+   *   (SPEC 9)
    */
-  update(playerS: number, tier: number): void;
+  update(playerS: number, tier: number, easyOnly?: boolean): void;
   /** The chunk most recently placed, for the debug overlay and tests. */
   readonly lastChunkId: string | null;
   /** Clears everything, for a restart. */
@@ -49,6 +61,19 @@ export function chunksForTier(tier: number, library: readonly Chunk[] = CHUNK_LI
   return library.filter((chunk) => tier >= chunk.minTier && tier <= chunk.maxTier);
 }
 
+/** How many obstacles a chunk puts in the player's way. */
+export function chunkObstacleCount(chunk: Chunk): number {
+  return chunk.placements.filter((placement) => isObstacleType(placement.type)).length;
+}
+
+/**
+ * The gentle chunks, used while a boost is running and for a moment after it
+ * ends, so the player is never dropped straight into something hard (SPEC 9).
+ */
+export function easyChunks(chunks: readonly Chunk[]): Chunk[] {
+  return chunks.filter((chunk) => chunkObstacleCount(chunk) <= POWERUPS.easyChunkObstacles);
+}
+
 /** The empty gap placed after a chunk at this tier, in units. */
 export function breatherForTier(tier: number): number {
   const gaps = TRACK.breatherByTier;
@@ -62,6 +87,8 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
     obstacles.push({ active: false, type: 'lowMine', lane: 0, s: 0 });
   }
   const coins: PooledCoin[] = createCoinPool();
+  const pickup: Pickup = createPickup();
+  let pickupPending = false;
 
   /** Where the next chunk will start, in units from the start of the slide. */
   let nextChunkS = 0;
@@ -85,7 +112,17 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
 
   const placeChunk = (chunk: Chunk, startS: number): void => {
     for (const placement of chunk.placements) {
-      if (placement.type === 'pickup') continue; // power-ups: M4
+      if (placement.type === 'pickup') {
+        // Only one pickup is ever on the track, and only when one is due.
+        if (!pickupPending || pickup.active) continue;
+        pickup.active = true;
+        pickup.type = randomPickupType(rng);
+        pickup.lane = placement.lane;
+        pickup.s = startS + placement.z;
+        pickup.y = placement.y ?? POWERUPS.pickupHeight;
+        pickupPending = false;
+        continue;
+      }
 
       if (placement.type === 'coin') {
         const slot = takeCoin();
@@ -93,10 +130,7 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
           overflowed = true;
           continue;
         }
-        slot.active = true;
-        slot.lane = placement.lane;
-        slot.s = startS + placement.z;
-        slot.y = placement.y ?? COINS.restHeight;
+        placeCoin(slot, placement.lane, startS + placement.z, placement.y ?? COINS.restHeight);
         continue;
       }
 
@@ -113,10 +147,16 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
     }
   };
 
-  const pick = (tier: number): Chunk | null => {
-    const allowed = chunksForTier(tier, library);
-    if (allowed.length === 0) return null;
+  const pick = (tier: number, easyOnly: boolean): Chunk | null => {
+    const forTier = chunksForTier(tier, library);
+    if (forTier.length === 0) return null;
+
+    // Around a boost, prefer the gentle chunks — but never run out of track
+    // if this tier has none.
+    const easy = easyOnly ? easyChunks(forTier) : [];
+    const allowed = easy.length > 0 ? easy : forTier;
     if (allowed.length === 1) return allowed[0] as Chunk;
+
     // Never the same chunk twice in a row (SPEC 6).
     const fresh = allowed.filter((chunk) => chunk.id !== lastChunkId);
     return rng.pick(fresh.length > 0 ? fresh : allowed);
@@ -125,11 +165,18 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
   return {
     obstacles,
     coins,
+    pickup,
+    get pickupPending() {
+      return pickupPending;
+    },
+    requestPickup() {
+      if (!pickup.active) pickupPending = true;
+    },
     get lastChunkId() {
       return lastChunkId;
     },
 
-    update(playerS: number, tier: number) {
+    update(playerS: number, tier: number, easyOnly = false) {
       // Retire what the player has already passed.
       for (const slot of obstacles) {
         if (slot.active && slot.s < playerS - TRACK.despawnBehind) {
@@ -141,6 +188,9 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
           slot.active = false;
         }
       }
+      if (pickup.active && pickup.s < playerS - TRACK.despawnBehind) {
+        pickup.active = false;
+      }
 
       // If the player is suddenly far ahead — a restart, or a very long stall —
       // skip the track they never saw instead of building it behind them.
@@ -150,7 +200,7 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
       // Build forward until the track is full far enough ahead.
       let guard = 0;
       while (nextChunkS < playerS + TRACK.buildAhead) {
-        const chunk = pick(tier);
+        const chunk = pick(tier, easyOnly);
         if (chunk === null) break;
         placeChunk(chunk, nextChunkS);
         lastChunkId = chunk.id;
@@ -169,6 +219,8 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
     reset() {
       for (const slot of obstacles) slot.active = false;
       for (const slot of coins) slot.active = false;
+      pickup.active = false;
+      pickupPending = false;
       nextChunkS = 0;
       lastChunkId = null;
     },

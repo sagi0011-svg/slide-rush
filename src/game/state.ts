@@ -12,7 +12,20 @@ import { bouncePlayer, createPlayer, queueAction, stepPlayer, type PlayerState }
 import { createRng, type Rng } from './rng';
 import { createSpawner, type Spawner } from './chunks/spawner';
 import { checkObstacle } from './collisions';
-import { coinCollected } from './coins';
+import { coinCollected, pullCoin, withinMagnetReach } from './coins';
+import { nextPickupDelay, pickupCollected } from './pickups';
+import {
+  absorbWithShield,
+  createPowerUps,
+  grant,
+  isInvulnerable,
+  isMagnetic,
+  speedWithPowerUps,
+  stepPowerUps,
+  wantsEasyTrack,
+  type PowerUpState,
+  type PowerUpType,
+} from './powerups';
 import {
   addCoin,
   addDistance,
@@ -49,6 +62,12 @@ export interface RunState {
   readonly spawner: Spawner;
   /** Points, coins and the multiplier (SPEC 10). */
   readonly score: Score;
+  /** Which power-ups are running, and for how much longer (SPEC 9). */
+  readonly powerUps: PowerUpState;
+  /** When the next pickup is due, in run seconds. */
+  nextPickupAt: number;
+  /** Counts up whenever a shield takes a hit, so the renderer can pop it. */
+  shieldPops: number;
   /** Current difficulty tier (SPEC 5). */
   tier: number;
   phase: RunPhase;
@@ -81,6 +100,9 @@ export function createRunState(seed: number, library?: readonly Chunk[]): RunSta
     player: createPlayer(),
     spawner: library === undefined ? createSpawner(rng) : createSpawner(rng, library),
     score: createScore(),
+    powerUps: createPowerUps(),
+    nextPickupAt: nextPickupDelay(rng),
+    shieldPops: 0,
     tier: 0,
     phase: 'running',
     deathCause: null,
@@ -130,18 +152,62 @@ function stumble(state: RunState): void {
   resetMultiplier(state.score, state.elapsed);
 }
 
+/** Where the middle of the player's body is, for coins and pickups. */
+function playerCentre(state: RunState): { x: number; y: number } {
+  const { player } = state;
+  const bodyHeight = player.vertical === 'sliding' ? PLAYER.slideHeight : PLAYER.standHeight;
+  return { x: player.laneOffset * LANES.width, y: player.height + bodyHeight / 2 };
+}
+
+/** Drags nearby coins in while a magnet or a boost is running (SPEC 9). */
+function applyMagnet(state: RunState, dt: number): void {
+  if (!isMagnetic(state.powerUps)) return;
+  const { x, y } = playerCentre(state);
+
+  for (const coin of state.spawner.coins) {
+    if (!coin.active) continue;
+    if (!coin.attracted && !withinMagnetReach(state.distance, coin)) continue;
+    // Once the magnet has a coin it keeps it, even as the player goes past.
+    coin.attracted = true;
+    pullCoin(coin, x, y, state.distance, dt);
+  }
+}
+
+/** Picks up the power-up pickup, if the player touched it (SPEC 9). */
+function collectPickup(state: RunState): void {
+  const { pickup } = state.spawner;
+  if (!pickup.active) return;
+  if (Math.abs(pickup.s - state.distance) > 4) return;
+
+  const { x, y } = playerCentre(state);
+  if (!pickupCollected(x, y, state.prevDistance, state.distance, pickup)) return;
+
+  pickup.active = false;
+  grant(state.powerUps, pickup.type);
+}
+
+/** Asks for a new pickup when one is due and none is about (SPEC 9). */
+function schedulePickup(state: RunState): void {
+  if (state.elapsed < state.nextPickupAt) return;
+  if (state.spawner.pickup.active || state.spawner.pickupPending) return;
+  state.spawner.requestPickup();
+  state.nextPickupAt = state.elapsed + nextPickupDelay(state.rng);
+}
+
+/** Grants a power-up directly. Used by the debug keys (SPEC 13). */
+export function grantPowerUp(state: RunState, type: PowerUpType): void {
+  grant(state.powerUps, type);
+}
+
 /** Picks up any coin the player touched on this tick (SPEC 8). */
 function collectCoins(state: RunState): void {
-  const { player } = state;
-  const playerX = player.laneOffset * LANES.width;
-  // The middle of the body, which rises on a jump and drops on a slide.
-  const bodyHeight = player.vertical === 'sliding' ? PLAYER.slideHeight : PLAYER.standHeight;
-  const playerY = player.height + bodyHeight / 2;
+  const { x: playerX, y: playerY } = playerCentre(state);
 
   for (const coin of state.spawner.coins) {
     if (!coin.active) continue;
     // Cheap reject: anything far along the slide cannot have been touched.
-    if (Math.abs(coin.s - state.distance) > 4) continue;
+    // A coin the magnet is dragging in is always worth testing.
+    if (!coin.attracted && Math.abs(coin.s - state.distance) > 4) continue;
     if (!coinCollected(playerX, playerY, state.prevDistance, state.distance, coin)) continue;
     coin.active = false;
     addCoin(state.score);
@@ -157,6 +223,21 @@ function resolveCollisions(state: RunState): void {
 
     const hit = checkObstacle(state.player, state.distance, state.prevDistance, obstacle);
     if (hit === null) continue;
+
+    // Boosting, or in a moment of grace: the obstacle is smashed aside and
+    // nothing happens to the player (SPEC 9).
+    if (isInvulnerable(state.powerUps)) {
+      obstacle.active = false;
+      continue;
+    }
+
+    // A shield takes one hit of any kind, deadly or not, and the obstacle
+    // goes with it. The multiplier survives (SPEC 9 and 10).
+    if (absorbWithShield(state.powerUps)) {
+      obstacle.active = false;
+      state.shieldPops += 1;
+      continue;
+    }
 
     if (hit.cost === 'death') {
       die(state, 'obstacle');
@@ -191,16 +272,21 @@ export function stepRun(state: RunState, dt: number = SIM.dt): void {
   if (state.stumbleRecovery > 0) {
     state.stumbleRecovery = Math.max(0, state.stumbleRecovery - dt);
   }
-  state.speed = forwardSpeed(state.elapsed) * stumbleSpeedFactor(state.stumbleRecovery);
+  const baseSpeed = forwardSpeed(state.elapsed) * stumbleSpeedFactor(state.stumbleRecovery);
+  state.speed = speedWithPowerUps(state.powerUps, baseSpeed);
   state.distance += state.speed * dt;
+  stepPowerUps(state.powerUps, dt, baseSpeed);
 
   // Points for the ground covered, at whatever the multiplier is now (SPEC 10).
   updateMultiplier(state.score, state.elapsed);
   addDistance(state.score, state.distance - state.prevDistance);
 
   stepPlayer(state.player, dt);
-  state.spawner.update(state.distance, state.tier);
+  schedulePickup(state);
+  state.spawner.update(state.distance, state.tier, wantsEasyTrack(state.powerUps));
+  applyMagnet(state, dt);
   collectCoins(state);
+  collectPickup(state);
   resolveCollisions(state);
 }
 

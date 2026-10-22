@@ -2,7 +2,7 @@
 
 An endless runner set on a water-park slide, in the spirit of Subway Surfers. Slide down, switch between 3 lanes, jump over mines, duck under arches, grab coins and power-ups, and see how far you get.
 
-**Status:** M3 done — coins, score, multiplier and a best score that survives a reload.
+**Status:** M4 done — shield, magnet and speed boost, with pickups on the track.
 
 > Hit feedback: the phone vibrates on a trip or a crash where the browser
 > allows it. Safari on iOS has never supported the Vibration API, and every
@@ -48,6 +48,7 @@ npm run preview          # serve the production build locally
 |---|---|
 | `?debug=1` | Shows fps, simulated time, tick count and the run seed |
 | `?seed=123` | Forces the run seed, so a run can be reproduced exactly |
+| `1` `2` `3` | With `?debug=1`: grants shield, magnet and speed boost |
 
 Debug also reports speed, lane, difficulty tier, stumbles, the current chunk and the player state.
 

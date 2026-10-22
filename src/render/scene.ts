@@ -11,6 +11,8 @@ import { createBlobShadow, createLights, createPlayerMesh, createSlideTexture } 
 import { createTrack, type Track } from './track';
 import { createObstacleLayer, type ObstacleLayer, type ObstacleView } from './obstacle-view';
 import { createCoinLayer, type CoinLayer, type CoinView } from './coin-view';
+import { createPickupLayer, type PickupLayer, type PickupView } from './pickup-view';
+import { createShieldBubble } from './factories';
 import { createChaseCamera, type ChaseCamera } from './camera';
 import { curveX, curveY } from './curve';
 
@@ -30,6 +32,12 @@ export interface Frame {
   obstacles: readonly ObstacleView[];
   /** The coins on the track. */
   coins: readonly CoinView[];
+  /** The one power-up pickup, if there is one on the track (SPEC 9). */
+  pickup: PickupView;
+  /** True while a shield is up, which draws the bubble (SPEC 9). */
+  shielded: boolean;
+  /** True while a boost is running, which widens the view (SPEC 2). */
+  boosting: boolean;
   /** Run time, in seconds, which is what the coins spin to. */
   elapsed: number;
   /** Counts up on every stumble; a change sets the camera shaking. */
@@ -69,6 +77,10 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   const track: Track = createTrack(scene, texture);
   const obstacleLayer: ObstacleLayer = createObstacleLayer(scene);
   const coinLayer: CoinLayer = createCoinLayer(scene);
+  const pickupLayer: PickupLayer = createPickupLayer(scene);
+
+  const shieldBubble = createShieldBubble();
+  scene.add(shieldBubble);
 
   const player = createPlayerMesh();
   scene.add(player);
@@ -98,6 +110,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       track.update(frame.distance);
       obstacleLayer.update(frame.obstacles, frame.distance);
       coinLayer.update(frame.coins, frame.distance, frame.elapsed);
+      pickupLayer.update(frame.pickup, frame.distance, frame.elapsed);
 
       // A stumble shakes the camera for a moment (SPEC 7). The counter only
       // ever climbs during a run, so a drop means a new run started — which
@@ -130,11 +143,18 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       shadow.scale.setScalar(1 - lift * 0.45);
       shadow.material.opacity = 0.25 * (1 - lift * 0.6);
 
+      // The shield bubble rides with the player.
+      shieldBubble.visible = frame.shielded;
+      if (frame.shielded) {
+        shieldBubble.position.set(baseX, groundY + frame.height + PLAYER.standHeight / 2, 0);
+      }
+
       chase.update(
         frame.distance,
         frame.laneOffset,
         frame.height,
         frame.sliding,
+        frame.boosting,
         frame.frameSeconds,
       );
 
@@ -153,6 +173,10 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       track.dispose();
       obstacleLayer.dispose();
       coinLayer.dispose();
+      pickupLayer.dispose();
+      scene.remove(shieldBubble);
+      shieldBubble.geometry.dispose();
+      shieldBubble.material.dispose();
       scene.remove(player, shadow);
       player.geometry.dispose();
       player.material.dispose();

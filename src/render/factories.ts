@@ -21,13 +21,16 @@ import {
   MeshBasicMaterial,
   MeshStandardMaterial,
   type Object3D,
+  OctahedronGeometry,
   PlaneGeometry,
   RepeatWrapping,
+  SphereGeometry,
   SRGBColorSpace,
   TorusGeometry,
 } from 'three';
-import { COINS, LANES, OBSTACLES, PALETTE, PLAYER, TRACK } from '../config';
+import { COINS, LANES, OBSTACLES, PALETTE, PLAYER, POWERUPS, TRACK } from '../config';
 import type { ObstacleType } from '../game/obstacles';
+import type { PowerUpType } from '../game/powerups';
 
 /** How many times the geometry of a track segment is cut across its length. */
 export const SEGMENT_DIVISIONS = 12;
@@ -207,5 +210,37 @@ export function createCoinInstances(capacity: number): InstancedMesh {
   mesh.instanceMatrix.setUsage(DynamicDrawUsage);
   mesh.frustumCulled = false;
   mesh.count = 0;
+  return mesh;
+}
+
+/** The floating pickup that grants a power-up, coloured by type (SPEC 9). */
+export function createPickupMesh(
+  type: PowerUpType,
+): Mesh<OctahedronGeometry, MeshStandardMaterial> {
+  const color =
+    type === 'shield' ? PALETTE.shield : type === 'magnet' ? PALETTE.magnet : PALETTE.boost;
+  const geometry = new OctahedronGeometry(POWERUPS.pickupSize, 0);
+  const material = new MeshStandardMaterial({
+    color,
+    roughness: 0.3,
+    metalness: 0.3,
+    emissive: color,
+    emissiveIntensity: 0.4,
+    flatShading: true,
+  });
+  return new Mesh(geometry, material);
+}
+
+/** The cyan bubble drawn around the player while a shield is up (SPEC 9). */
+export function createShieldBubble(): Mesh<SphereGeometry, MeshBasicMaterial> {
+  const geometry = new SphereGeometry(PLAYER.standHeight * 0.75, 16, 12);
+  const material = new MeshBasicMaterial({
+    color: PALETTE.shield,
+    transparent: true,
+    opacity: 0.3,
+    depthWrite: false,
+  });
+  const mesh = new Mesh(geometry, material);
+  mesh.visible = false;
   return mesh;
 }

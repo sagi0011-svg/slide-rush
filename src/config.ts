@@ -153,6 +153,8 @@ export const CAMERA = {
   heightDamping: 6,
   /** Extra degrees of field of view per unit of downhill slope. */
   fovKickPerSlope: 32,
+  /** Extra degrees of field of view while a speed boost is running (SPEC 9). */
+  boostFovKick: 10,
   /** How quickly the field of view eases toward its target. */
   fovDamping: 3,
   /** How far the camera shakes after a stumble, in units, and for how long. */
@@ -244,6 +246,8 @@ export const POWERUPS = {
     duration: 10,
     /** Coins within this distance ahead are pulled in, in units. */
     radius: 8,
+    /** How fast a pulled coin flies to the player, in units per second. */
+    pullSpeed: 26,
   },
   boost: {
     duration: 5,
@@ -256,6 +260,15 @@ export const POWERUPS = {
     /** Seconds after a boost in which no hard chunk may be spawned. */
     safeWindowAfterEnd: 1.5,
   },
+  /** A chunk counts as easy, and so is safe to meet after a boost, up to this
+   * many obstacles. */
+  easyChunkObstacles: 1,
+  /** Placeholder size of a floating pickup, in units. */
+  pickupSize: 0.9,
+  /** How high a pickup floats above the slide, in units. */
+  pickupHeight: 1.3,
+  /** How fast a pickup bobs and spins, in turns per second. */
+  pickupSpinRate: 0.5,
 } as const;
 
 /**

@@ -8,7 +8,8 @@
 import './ui/styles.css';
 import { SIM } from './config';
 import { createFixedStepper } from './game/loop';
-import { applyAction, createRunState, shouldRestart, stepRun } from './game/state';
+import { applyAction, createRunState, grantPowerUp, shouldRestart, stepRun } from './game/state';
+import { isActive, POWERUP_TYPES, remainingFraction, type PowerUpType } from './game/powerups';
 import { randomSeed } from './game/rng';
 import { isSliding } from './game/player';
 import { createInputSource } from './input';
@@ -87,6 +88,24 @@ function boot(): void {
     }
   });
 
+  // Debug keys: 1, 2 and 3 grant the three power-ups, so they can be tried
+  // without waiting for a pickup (SPEC 13).
+  if (debug.enabled) {
+    const debugGrants: Record<string, PowerUpType> = {
+      Digit1: 'shield',
+      Digit2: 'magnet',
+      Digit3: 'boost',
+    };
+    window.addEventListener('keydown', (event) => {
+      const type = debugGrants[event.code];
+      if (type === undefined) return;
+      grantPowerUp(state, type);
+    });
+  }
+
+  // Reused every frame rather than rebuilt, like the frame object (rule 7).
+  const powerUpBars: Record<PowerUpType, number> = { shield: 0, magnet: 0, boost: 0 };
+
   let lastFrameMs = performance.now();
 
   // One frame object, reused every frame: no allocations in the hot loop (rule 7).
@@ -98,6 +117,9 @@ function boot(): void {
     bump: 0,
     obstacles: state.spawner.obstacles,
     coins: state.spawner.coins,
+    pickup: state.spawner.pickup,
+    shielded: false,
+    boosting: false,
     elapsed: 0,
     shakeTrigger: 0,
     dead: false,
@@ -133,6 +155,7 @@ function boot(): void {
       state = createRunState(seedParam === null ? randomSeed() : seed);
       frame.obstacles = state.spawner.obstacles;
       frame.coins = state.spawner.coins;
+      frame.pickup = state.spawner.pickup;
       lastStumbles = 0;
       wasDead = false;
       stepper.reset();
@@ -149,17 +172,23 @@ function boot(): void {
     frame.sliding = isSliding(player);
     frame.bump = player.bump;
     frame.elapsed = state.elapsed;
+    frame.shielded = isActive(state.powerUps, 'shield');
+    frame.boosting = isActive(state.powerUps, 'boost');
     frame.shakeTrigger = state.shakeTrigger;
     frame.dead = state.phase === 'dead';
     frame.frameSeconds = frameSeconds;
     renderer.draw(frame);
 
+    for (const type of POWERUP_TYPES) {
+      powerUpBars[type] = remainingFraction(state.powerUps, type);
+    }
     hud.update({
       score: displayScore(state.score),
       coins: state.score.coins,
       multiplier: state.score.multiplier,
       bestScore: save.data.bestScore,
       status: state.phase === 'dead' ? 'dead' : state.paused ? 'paused' : 'running',
+      powerUps: powerUpBars,
     });
 
     debug.update(frameSeconds, {
@@ -174,6 +203,12 @@ function boot(): void {
       stumbles: state.stumbles,
       phase: state.phase,
       chunk: state.spawner.lastChunkId,
+      powerUps: POWERUP_TYPES.filter((type) => isActive(state.powerUps, type)).join(' '),
+      pickup: state.spawner.pickup.active
+        ? `${state.spawner.pickup.type} in ${Math.round(state.spawner.pickup.s - state.distance)}`
+        : state.spawner.pickupPending
+          ? 'waiting'
+          : `due ${Math.round(state.nextPickupAt - state.elapsed)}s`,
     });
 
     window.requestAnimationFrame(tick);

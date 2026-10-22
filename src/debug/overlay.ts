@@ -17,6 +17,9 @@ export interface DebugInfo {
   stumbles: number;
   phase: string;
   chunk: string | null;
+  powerUps: string;
+  /** What the one power-up pickup is doing right now (SPEC 9). */
+  pickup: string;
 }
 
 export interface DebugOverlay {
@@ -58,6 +61,8 @@ export function createDebugOverlay(element: HTMLElement, enabled: boolean): Debu
         `tier  ${info.tier}`,
         `trips ${info.stumbles}`,
         `chunk ${info.chunk ?? '-'}`,
+        `power ${info.powerUps === '' ? '-' : info.powerUps}`,
+        `pick  ${info.pickup}`,
         `ticks ${info.ticks}`,
         `seed  ${info.seed}`,
       ].join('\n');

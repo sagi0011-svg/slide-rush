@@ -49,7 +49,7 @@ export const WARMUP_CHUNKS: readonly Chunk[] = [
     maxTier: 1,
     length: LENGTH,
     // A breather, and a free handful of coins down the middle.
-    placements: [...line(0, 8, 32)],
+    placements: [{ type: 'pickup', lane: 0, z: 20 }, ...line(0, 8, 32)],
   },
   {
     id: 'w1-centre-wall',
@@ -57,7 +57,12 @@ export const WARMUP_CHUNKS: readonly Chunk[] = [
     maxTier: 3,
     length: LENGTH,
     // One wall in the middle: step either way. The coins show you where.
-    placements: [{ type: 'fullBlocker', lane: 0, z: 20 }, ...line(0, 4, 12), ...line(1, 17, 34)],
+    placements: [
+      { type: 'pickup', lane: 1, z: 30 },
+      { type: 'fullBlocker', lane: 0, z: 20 },
+      ...line(0, 4, 12),
+      ...line(1, 17, 34),
+    ],
   },
   {
     id: 'w2-two-mines',
@@ -81,6 +86,7 @@ export const WARMUP_CHUNKS: readonly Chunk[] = [
     // Both edges blocked in turn; the middle is always open, and that is
     // exactly where the coins are.
     placements: [
+      { type: 'pickup', lane: 0, z: 20 },
       { type: 'fullBlocker', lane: -1, z: 12 },
       { type: 'fullBlocker', lane: 1, z: 28 },
       ...line(0, 6, 34),
@@ -92,6 +98,7 @@ export const WARMUP_CHUNKS: readonly Chunk[] = [
     maxTier: 3,
     length: LENGTH,
     placements: [
+      { type: 'pickup', lane: 0, z: 19 },
       { type: 'lowMine', lane: -1, z: 11 },
       { type: 'lowMine', lane: 1, z: 27 },
       ...line(0, 5, 35),
@@ -157,6 +164,7 @@ export const WARMUP_CHUNKS: readonly Chunk[] = [
     length: LENGTH,
     // The soft ring only ever trips you up; the arch is deadly.
     placements: [
+      { type: 'pickup', lane: 0, z: 34 },
       { type: 'softObstacle', lane: -1, z: 12 },
       { type: 'highObstacle', lane: 1, z: 29 },
       ...arc(-1, 12),

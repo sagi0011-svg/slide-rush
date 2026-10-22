@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COINS, DIFFICULTY, PLAYER, TRACK } from '../src/config';
+import { COINS, DIFFICULTY, PLAYER, POWERUPS, TRACK } from '../src/config';
 import { CHUNK_LIBRARY } from '../src/game/chunks';
 import { chunkObstacles, coinPlacements, type Chunk } from '../src/game/chunks/types';
 import { breatherForTier, chunksForTier } from '../src/game/chunks/spawner';
@@ -22,6 +22,33 @@ function worstSpeed(chunk: Chunk): number {
 
 function describePath(obstacles: readonly Obstacle[]): string {
   return obstacles.map((o) => `${o.type}@lane${o.lane}/${o.s.toFixed(0)}`).join(', ');
+}
+
+/**
+ * Every way the player can be standing at a given moment: on their feet,
+ * sliding, or at some height in a jump.
+ */
+function poses(): Array<{ name: string; player: PlayerState; centre: number }> {
+  const out: Array<{ name: string; player: PlayerState; centre: number }> = [];
+
+  const standing = createPlayer();
+  out.push({ name: 'standing', player: standing, centre: PLAYER.standHeight / 2 });
+
+  const sliding = createPlayer();
+  sliding.vertical = 'sliding';
+  out.push({ name: 'sliding', player: sliding, centre: PLAYER.slideHeight / 2 });
+
+  for (let height = 0.05; height <= PLAYER.jumpHeight + 1e-9; height += 0.05) {
+    const jumping = createPlayer();
+    jumping.vertical = 'jumping';
+    jumping.height = height;
+    out.push({
+      name: `jumping at ${height.toFixed(2)}`,
+      player: jumping,
+      centre: height + PLAYER.standHeight / 2,
+    });
+  }
+  return out;
 }
 
 describe('chunk fairness (SPEC 6)', () => {
@@ -259,33 +286,6 @@ describe('coin trails (SPEC 6 and 8)', () => {
     expect(withCoins.length).toBe(CHUNK_LIBRARY.length);
   });
 
-  /**
-   * Every way the player can be standing at a given moment: on their feet,
-   * sliding, or at some height in a jump.
-   */
-  function poses(): Array<{ name: string; player: PlayerState; centre: number }> {
-    const out: Array<{ name: string; player: PlayerState; centre: number }> = [];
-
-    const standing = createPlayer();
-    out.push({ name: 'standing', player: standing, centre: PLAYER.standHeight / 2 });
-
-    const sliding = createPlayer();
-    sliding.vertical = 'sliding';
-    out.push({ name: 'sliding', player: sliding, centre: PLAYER.slideHeight / 2 });
-
-    for (let height = 0.05; height <= PLAYER.jumpHeight + 1e-9; height += 0.05) {
-      const jumping = createPlayer();
-      jumping.vertical = 'jumping';
-      jumping.height = height;
-      out.push({
-        name: `jumping at ${height.toFixed(2)}`,
-        player: jumping,
-        centre: height + PLAYER.standHeight / 2,
-      });
-    }
-    return out;
-  }
-
   it('never puts a coin somewhere it can only be reached by being hit', () => {
     // Coins are meant to show the way through. A coin that can only be
     // collected from a pose that hits something would do the exact opposite.
@@ -345,6 +345,57 @@ describe('coin trails (SPEC 6 and 8)', () => {
         expect(seen.has(key), `${chunk.id}: two coins at ${key}`).toBe(false);
         seen.add(key);
       }
+    }
+  });
+});
+
+describe('pickup slots (SPEC 9)', () => {
+  it('offers somewhere to put a pickup', () => {
+    const withSlots = CHUNK_LIBRARY.filter((chunk) =>
+      chunk.placements.some((placement) => placement.type === 'pickup'),
+    );
+    expect(withSlots.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('never puts two slots in one chunk', () => {
+    for (const chunk of CHUNK_LIBRARY) {
+      const slots = chunk.placements.filter((placement) => placement.type === 'pickup');
+      expect(slots.length, chunk.id).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('never puts a pickup somewhere it can only be reached by being hit', () => {
+    // The same rule as the coins: a power-up that lures you into a wall would
+    // be worse than no power-up at all.
+    const reach = COINS.pickupRadius + POWERUPS.pickupSize / 2;
+
+    for (const chunk of CHUNK_LIBRARY) {
+      const obstacles = chunkObstacles(chunk, 0);
+      const slot = chunk.placements.find((placement) => placement.type === 'pickup');
+      if (slot === undefined) continue;
+
+      const slotY = slot.y ?? POWERUPS.pickupHeight;
+      const inTheWay = obstacles.filter((obstacle) => {
+        if (obstacle.lane !== slot.lane) return false;
+        obstacleBox(obstacle, createBox());
+        return Math.abs(slot.z - obstacle.s) < 3 + PLAYER.radius;
+      });
+
+      const safe = poses().filter((pose) => {
+        if (Math.abs(pose.centre - slotY) > reach) return false;
+        return inTheWay.every(
+          (obstacle) =>
+            !boxesOverlap(
+              playerBox(pose.player, slot.z, createBox()),
+              obstacleBox(obstacle, createBox()),
+            ),
+        );
+      });
+
+      expect(
+        safe.length,
+        `${chunk.id}: the pickup at lane ${slot.lane}, z ${slot.z} cannot be taken safely`,
+      ).toBeGreaterThan(0);
     }
   });
 });

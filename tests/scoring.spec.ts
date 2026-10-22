@@ -9,8 +9,8 @@ import {
   resetMultiplier,
   updateMultiplier,
 } from '../src/game/scoring';
-import { coinCollected, createCoinPool } from '../src/game/coins';
-import type { Coin } from '../src/game/coins';
+import { coinCollected, createCoinPool, placeCoin } from '../src/game/coins';
+import type { Coin, PooledCoin } from '../src/game/coins';
 
 const DT = SIM.dt;
 
@@ -112,7 +112,11 @@ describe('earning points (SPEC 8 and 10)', () => {
 });
 
 describe('collecting coins (SPEC 8)', () => {
-  const coin = (lane: number, s: number, y: number = COINS.restHeight): Coin => ({ lane, s, y });
+  const coin = (lane: number, s: number, y: number = COINS.restHeight): Coin => ({
+    x: lane * LANES.width,
+    s,
+    y,
+  });
 
   it('picks up a coin the player runs through', () => {
     expect(coinCollected(0, COINS.restHeight, 19.8, 20.1, coin(0, 20))).toBe(true);
@@ -184,10 +188,15 @@ describe('the coin pool', () => {
     expect(pool.every((coin) => !coin.active)).toBe(true);
   });
 
-  it('places coins in the middle of their lane', () => {
-    // The collection test works in units across the slide, not lane numbers.
-    expect(coinCollected(LANES.width, COINS.restHeight, 20, 20, { lane: 1, s: 20, y: 1 })).toBe(
-      true,
-    );
+  it('places a coin in the middle of its lane', () => {
+    const pool = createCoinPool(1);
+    const slot = pool[0] as PooledCoin;
+    placeCoin(slot, 1, 20, COINS.restHeight);
+
+    expect(slot.active).toBe(true);
+    expect(slot.x).toBe(LANES.width);
+    expect(slot.s).toBe(20);
+    expect(slot.attracted).toBe(false);
+    expect(coinCollected(LANES.width, COINS.restHeight, 20, 20, slot)).toBe(true);
   });
 });

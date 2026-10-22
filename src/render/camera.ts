@@ -16,6 +16,7 @@ export interface ChaseCamera {
    * @param laneOffset where the player is across the slide, in lane units
    * @param height how high the player is above the slide, in units
    * @param sliding whether the player is in the low slide pose
+   * @param boosting whether a speed boost is running, which widens the view
    * @param frameSeconds real time since the last frame, for the damping
    */
   update(
@@ -23,6 +24,7 @@ export interface ChaseCamera {
     laneOffset: number,
     height: number,
     sliding: boolean,
+    boosting: boolean,
     frameSeconds: number,
   ): void;
 }
@@ -43,7 +45,7 @@ export function createChaseCamera(camera: PerspectiveCamera): ChaseCamera {
   let fov: number = CAMERA.fov;
 
   return {
-    update(playerS, laneOffset, height, sliding, frameSeconds) {
+    update(playerS, laneOffset, height, sliding, boosting, frameSeconds) {
       // Where the camera is along the slide: a fixed distance behind the player.
       const cameraS = playerS - CAMERA.offset.z;
 
@@ -70,8 +72,12 @@ export function createChaseCamera(camera: PerspectiveCamera): ChaseCamera {
         playerS - lookS, // i.e. -CAMERA.lookAhead, in the same frame as the track
       );
 
-      // A small kick on the drop sections: speed-feel only, no gameplay effect.
-      const targetFov = CAMERA.fov + CAMERA.fovKickPerSlope * curveDownhill(playerS);
+      // A small kick on the drop sections, and a bigger one while boosting:
+      // speed-feel only, no gameplay effect (SPEC 2 and 9).
+      const targetFov =
+        CAMERA.fov +
+        CAMERA.fovKickPerSlope * curveDownhill(playerS) +
+        (boosting ? CAMERA.boostFovKick : 0);
       fov = damp(fov, targetFov, CAMERA.fovDamping, frameSeconds);
       if (Math.abs(camera.fov - fov) > 0.01) {
         camera.fov = fov;

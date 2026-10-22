@@ -126,6 +126,74 @@ body {
   font-size: 15px;
 }
 
+/* The power-up timers: an icon and a bar that shrinks (SPEC 9). */
+#powerups {
+  position: absolute;
+  left: 14px;
+  top: calc(env(safe-area-inset-top, 0px) + 74px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.powerup {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-shadow: var(--hud-shadow);
+}
+
+/*
+ * An author `display` beats the browser's own rule for the `hidden`
+ * attribute, so without this a power-up that is not running still shows,
+ * with whatever was left on its bar.
+ */
+.powerup[hidden] {
+  display: none;
+}
+
+.powerup .dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.powerup .bar {
+  width: 58px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+
+.powerup .bar span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  /* Set from code as the timer runs down; no transition, so it never lags. */
+  transform-origin: left center;
+}
+
+.powerup[data-type='shield'] .dot,
+.powerup[data-type='shield'] .bar span {
+  background: #22d3ee;
+}
+
+.powerup[data-type='magnet'] .dot,
+.powerup[data-type='magnet'] .bar span {
+  background: #9775fa;
+}
+
+.powerup[data-type='boost'] .dot,
+.powerup[data-type='boost'] .bar span {
+  background: #ff922b;
+}
+
 /* "Paused" / "Crashed!", across the middle of the frame. */
 #status {
   position: absolute;
@@ -214,9 +282,10 @@ body {
 /* Debug overlay (?debug=1). Grows into the full overlay from SPEC 13 in M8. */
 #debug {
   position: absolute;
-  left: 14px;
-  /* Below the HUD, out of the way of the player at the bottom of the frame. */
-  top: calc(env(safe-area-inset-top, 0px) + 40px);
+  /* On the right, clear of the power-up timers down the left and of the
+     player at the bottom of the frame. */
+  right: 14px;
+  top: calc(env(safe-area-inset-top, 0px) + 78px);
   display: none;
   font:
     12px / 1.45 ui-monospace,

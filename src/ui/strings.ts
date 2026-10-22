@@ -11,6 +11,12 @@ export const STRINGS = {
   crashed: 'Crashed!',
   best: 'BEST',
   coinSymbol: '●',
+  /** Short labels for the power-up timers on the HUD (SPEC 9). */
+  powerUps: {
+    shield: 'SHIELD',
+    magnet: 'MAGNET',
+    boost: 'BOOST',
+  },
 } as const;
 
 export type StringKey = keyof typeof STRINGS;
