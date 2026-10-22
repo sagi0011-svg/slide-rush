@@ -92,11 +92,13 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       track.update(frame.distance);
       obstacleLayer.update(frame.obstacles, frame.distance);
 
-      // A stumble shakes the camera for a moment (SPEC 7).
-      if (frame.shakeTrigger !== lastShakeTrigger) {
-        lastShakeTrigger = frame.shakeTrigger;
+      // A stumble shakes the camera for a moment (SPEC 7). The counter only
+      // ever climbs during a run, so a drop means a new run started — which
+      // must not set the camera shaking.
+      if (frame.shakeTrigger > lastShakeTrigger) {
         shake = CAMERA.shakeTime;
       }
+      lastShakeTrigger = frame.shakeTrigger;
       if (shake > 0) shake = Math.max(0, shake - frame.frameSeconds);
 
       // A refused lane change nudges the player against the wall and back.

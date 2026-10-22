@@ -4,6 +4,11 @@ An endless runner set on a water-park slide, in the spirit of Subway Surfers. Sl
 
 **Status:** M2 done — the slide now has obstacles. You can crash, trip and restart.
 
+> Hit feedback: the phone vibrates on a trip or a crash where the browser
+> allows it. Safari on iOS has never supported the Vibration API, and every
+> browser on an iPhone is Safari underneath, so iPhones get the screen flash
+> and the camera shake instead.
+
 **Play it:** https://sagi0011-svg.github.io/slide-rush/
 
 - Platform: browser, mobile-first (portrait), keyboard supported on desktop

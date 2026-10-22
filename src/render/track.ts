@@ -18,6 +18,7 @@ import type {
 import { TRACK } from '../config';
 import { createTrackSegment } from './factories';
 import { curveX, curveY } from './curve';
+import { segmentWindowStart, wrapSegmentStart } from './recycle';
 
 interface Segment {
   mesh: Mesh<PlaneGeometry, MeshStandardMaterial>;
@@ -81,10 +82,12 @@ export function createTrack(scene: Scene, texture: CanvasTexture): Track {
       baseX[v] = position.getX(v);
       baseZ[v] = position.getZ(v);
     }
-    // The first segment starts just behind the player, the rest follow on.
+    // Lay the pool out across the window it will be recycled within, so the
+    // first frame has nothing to move.
     const segment: Segment = {
       mesh,
-      startS: (i - 1) * TRACK.segmentLength,
+      startS:
+        segmentWindowStart(0, TRACK.recycleBehind, TRACK.segmentLength) + i * TRACK.segmentLength,
       baseX,
       baseZ,
     };
@@ -95,10 +98,15 @@ export function createTrack(scene: Scene, texture: CanvasTexture): Track {
 
   return {
     update(playerS: number) {
+      const windowStart = segmentWindowStart(playerS, TRACK.recycleBehind, TRACK.segmentLength);
       for (const segment of segments) {
-        // Once a segment is well behind the camera, move it to the front.
-        if (segment.startS + TRACK.segmentLength < playerS - TRACK.recycleBehind) {
-          segment.startS += span;
+        // Keep every segment inside the window that slides with the player.
+        // Normally this moves one segment from the back to the front; when the
+        // player jumps backwards — which is what a restart is — it brings the
+        // whole slide back with them instead of leaving it far down the track.
+        const wrapped = wrapSegmentStart(segment.startS, windowStart, span);
+        if (wrapped !== segment.startS) {
+          segment.startS = wrapped;
           shapeSegment(segment);
         }
         // The player sits at z = 0 and the slide slides past them.

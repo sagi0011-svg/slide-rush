@@ -108,6 +108,61 @@ body {
   display: flex;
 }
 
+/*
+ * Hit flash. A glow around the edges of the frame, so the middle of the screen
+ * stays readable. This is the feedback an iPhone gets, where the browser
+ * cannot vibrate (src/ui/feedback.ts).
+ */
+#flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+#flash.stumble,
+#flash.death {
+  animation: hit-flash 0.35s ease-out;
+}
+
+/*
+ * A radial gradient rather than an inset box-shadow: a shadow on an element
+ * with no background of its own does not reliably composite over the WebGL
+ * canvas, so it can end up invisible on exactly the device you need it on.
+ */
+#flash.stumble {
+  background: radial-gradient(
+    ellipse at 50% 60%,
+    rgba(252, 196, 25, 0) 42%,
+    rgba(252, 196, 25, 0.75) 100%
+  );
+}
+
+#flash.death {
+  background: radial-gradient(
+    ellipse at 50% 60%,
+    rgba(224, 49, 49, 0) 30%,
+    rgba(224, 49, 49, 0.92) 100%
+  );
+}
+
+@keyframes hit-flash {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Someone who asked for less movement still gets the flash, just gently. */
+@media (prefers-reduced-motion: reduce) {
+  #flash.stumble,
+  #flash.death {
+    animation-duration: 0.2s;
+  }
+}
+
 /* Debug overlay (?debug=1). Grows into the full overlay from SPEC 13 in M8. */
 #debug {
   position: absolute;

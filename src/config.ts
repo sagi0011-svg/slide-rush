@@ -249,6 +249,22 @@ export const POWERUPS = {
   },
 } as const;
 
+/**
+ * Hit feedback: vibration and the screen flash (src/ui/feedback.ts).
+ *
+ * Vibration patterns are milliseconds, alternating buzz and pause.
+ */
+export const FEEDBACK = {
+  vibration: {
+    /** A single short buzz for a trip. */
+    stumble: [35],
+    /** A heavier double buzz for the end of a run. */
+    death: [70, 50, 110],
+  },
+  /** How long the screen flash lasts, in seconds. */
+  flashTime: 0.35,
+} as const;
+
 /** Local save (SPEC 10). */
 export const SAVE = {
   /** Versioned localStorage key, so an old save shape can never break a new build. */

@@ -14,6 +14,7 @@ import { isSliding } from './game/player';
 import { createInputSource } from './input';
 import { createRenderer, type Frame, type Renderer } from './render/scene';
 import { createDebugOverlay, isDebugEnabled } from './debug/overlay';
+import { createFeedback } from './ui/feedback';
 import { STRINGS } from './ui/strings';
 
 function requireElement<T extends HTMLElement>(id: string): T {
@@ -51,6 +52,12 @@ function boot(): void {
   }
 
   const input = createInputSource(canvas);
+  // Vibration where the browser allows it, and a flash everywhere else.
+  const feedback = createFeedback(document.getElementById('flash'));
+
+  // Watched so a stumble or a death can be felt the moment it happens.
+  let lastStumbles = state.stumbles;
+  let wasDead = false;
 
   const hudLeft = requireElement('hud-left');
   const hudRight = requireElement('hud-right');
@@ -99,11 +106,19 @@ function boot(): void {
       stepRun(state);
     }
 
+    // Buzz and flash on a trip, and harder when the run ends (SPEC 7).
+    if (state.stumbles > lastStumbles) feedback.play('stumble');
+    lastStumbles = state.stumbles;
+    if (state.phase === 'dead' && !wasDead) feedback.play('death');
+    wasDead = state.phase === 'dead';
+
     // Death restarts the run after a short beat. M6 replaces this with a
     // proper game-over screen.
     if (shouldRestart(state)) {
       state = createRunState(seedParam === null ? randomSeed() : seed);
       frame.obstacles = state.spawner.obstacles;
+      lastStumbles = 0;
+      wasDead = false;
       stepper.reset();
     }
 
