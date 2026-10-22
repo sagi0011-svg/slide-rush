@@ -31,6 +31,26 @@ function formatNumber(value: number): string {
   return Math.max(0, Math.floor(value)).toLocaleString('en-US');
 }
 
+/**
+ * Whether a power-up's row on the HUD has to be redrawn.
+ *
+ * A bar that is running down changes by a fraction of a percent each frame,
+ * which nobody can see, so most frames are skipped. The one thing that must
+ * never be skipped is the row appearing or disappearing: a timer reaches zero
+ * in steps far smaller than that threshold, so without this a power-up that
+ * simply ran out would be left on screen for the rest of the run, showing a
+ * sliver of bar that never moves again.
+ *
+ * @param next how much is left now, 0..1
+ * @param previous what the row was last drawn with, or -1 if never
+ */
+export function powerUpRowNeedsUpdate(next: number, previous: number): boolean {
+  // Appearing or vanishing always counts, however small the change.
+  if (next > 0 !== previous > 0) return true;
+  // A hundredth of the bar is far below what anyone can see.
+  return Math.abs(next - previous) >= 0.01;
+}
+
 /** One row of the power-up rail: a coloured dot, a label and a shrinking bar. */
 interface PowerUpRow {
   row: HTMLElement;
@@ -111,8 +131,7 @@ export function createHud(root: HTMLElement): Hud {
 
       for (const [type, row] of powerUpRows) {
         const left = values.powerUps[type];
-        // A hundredth of the bar is far below what anyone can see.
-        if (Math.abs(left - (lastPowerUps.get(type) ?? -1)) < 0.01) continue;
+        if (!powerUpRowNeedsUpdate(left, lastPowerUps.get(type) ?? -1)) continue;
         lastPowerUps.set(type, left);
 
         row.row.hidden = left <= 0;
