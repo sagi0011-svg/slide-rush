@@ -12,8 +12,11 @@ import {
   CanvasTexture,
   CapsuleGeometry,
   CircleGeometry,
+  CylinderGeometry,
   DirectionalLight,
+  DynamicDrawUsage,
   IcosahedronGeometry,
+  InstancedMesh,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -23,7 +26,7 @@ import {
   SRGBColorSpace,
   TorusGeometry,
 } from 'three';
-import { LANES, OBSTACLES, PALETTE, PLAYER, TRACK } from '../config';
+import { COINS, LANES, OBSTACLES, PALETTE, PLAYER, TRACK } from '../config';
 import type { ObstacleType } from '../game/obstacles';
 
 /** How many times the geometry of a track segment is cut across its length. */
@@ -181,4 +184,28 @@ export function createObstacleMesh(type: ObstacleType): Mesh {
 export function obstacleMeshHeight(type: ObstacleType): number {
   const size = OBSTACLES.size[type];
   return size.y + size.h / 2;
+}
+
+/**
+ * The coin mesh, built once and drawn for every coin at once through
+ * instancing, so a trail of coins costs a single draw call (SPEC 13).
+ *
+ * The cylinder lies on its side, like a coin standing up facing the player.
+ */
+export function createCoinInstances(capacity: number): InstancedMesh {
+  const geometry = new CylinderGeometry(COINS.radius, COINS.radius, COINS.thickness, 14);
+  // Stand it upright and face it down the slide.
+  geometry.rotateX(Math.PI / 2);
+  const material = new MeshStandardMaterial({
+    color: PALETTE.coin,
+    roughness: 0.25,
+    metalness: 0.6,
+    emissive: PALETTE.coin,
+    emissiveIntensity: 0.15,
+  });
+  const mesh = new InstancedMesh(geometry, material, capacity);
+  mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+  mesh.frustumCulled = false;
+  mesh.count = 0;
+  return mesh;
 }

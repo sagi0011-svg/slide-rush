@@ -10,6 +10,7 @@ import { CAMERA, LANES, PALETTE, PLAYER } from '../config';
 import { createBlobShadow, createLights, createPlayerMesh, createSlideTexture } from './factories';
 import { createTrack, type Track } from './track';
 import { createObstacleLayer, type ObstacleLayer, type ObstacleView } from './obstacle-view';
+import { createCoinLayer, type CoinLayer, type CoinView } from './coin-view';
 import { createChaseCamera, type ChaseCamera } from './camera';
 import { curveX, curveY } from './curve';
 
@@ -27,6 +28,10 @@ export interface Frame {
   bump: number;
   /** The obstacles on the track. */
   obstacles: readonly ObstacleView[];
+  /** The coins on the track. */
+  coins: readonly CoinView[];
+  /** Run time, in seconds, which is what the coins spin to. */
+  elapsed: number;
   /** Counts up on every stumble; a change sets the camera shaking. */
   shakeTrigger: number;
   /** True once the run has ended, for the death beat. */
@@ -63,6 +68,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   const texture = createSlideTexture();
   const track: Track = createTrack(scene, texture);
   const obstacleLayer: ObstacleLayer = createObstacleLayer(scene);
+  const coinLayer: CoinLayer = createCoinLayer(scene);
 
   const player = createPlayerMesh();
   scene.add(player);
@@ -91,6 +97,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     draw(frame: Frame) {
       track.update(frame.distance);
       obstacleLayer.update(frame.obstacles, frame.distance);
+      coinLayer.update(frame.coins, frame.distance, frame.elapsed);
 
       // A stumble shakes the camera for a moment (SPEC 7). The counter only
       // ever climbs during a run, so a drop means a new run started — which
@@ -145,6 +152,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     dispose() {
       track.dispose();
       obstacleLayer.dispose();
+      coinLayer.dispose();
       scene.remove(player, shadow);
       player.geometry.dispose();
       player.material.dispose();

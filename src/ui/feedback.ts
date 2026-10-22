@@ -21,6 +21,14 @@ export type FeedbackEvent = 'stumble' | 'death';
 export interface Feedback {
   /** True if this device can actually vibrate. False on every iPhone. */
   readonly canVibrate: boolean;
+  /**
+   * True once the player has touched the page. Browsers refuse to vibrate
+   * before that and log an error for every attempt, so nothing is asked of
+   * them until it is true.
+   */
+  readonly unlocked: boolean;
+  /** Called by the first tap or key press. */
+  unlock(): void;
   /** Plays the feedback for an event. */
   play(event: FeedbackEvent): void;
   /** Turns vibration and flashing off or on; the mute setting uses this. */
@@ -46,6 +54,7 @@ function vibrate(pattern: readonly number[]): void {
 export function createFeedback(flashElement: HTMLElement | null): Feedback {
   const canVibrate = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
   let enabled = true;
+  let unlocked = false;
   let flashTimer: number | undefined;
 
   const flash = (event: FeedbackEvent): void => {
@@ -66,16 +75,23 @@ export function createFeedback(flashElement: HTMLElement | null): Feedback {
 
   return {
     canVibrate,
+    get unlocked() {
+      return unlocked;
+    },
+    unlock() {
+      unlocked = true;
+    },
     get enabled() {
       return enabled;
     },
     setEnabled(next: boolean) {
       enabled = next;
-      if (!next) vibrate([0]);
+      if (!next && unlocked) vibrate([0]);
     },
     play(event: FeedbackEvent) {
       if (!enabled) return;
-      vibrate(FEEDBACK.vibration[event]);
+      // The flash always happens; the buzz waits for the browser to allow it.
+      if (unlocked) vibrate(FEEDBACK.vibration[event]);
       flash(event);
     },
   };

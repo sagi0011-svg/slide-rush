@@ -10,9 +10,10 @@
  * the run's seeded RNG (rule 6).
  */
 
-import { TRACK } from '../../config';
+import { COINS, TRACK } from '../../config';
 import type { Rng } from '../rng';
 import type { Obstacle, ObstacleType } from '../obstacles';
+import { createCoinPool, type PooledCoin } from '../coins';
 import type { Chunk } from './types';
 import { CHUNK_LIBRARY } from './index';
 
@@ -24,6 +25,8 @@ export interface PooledObstacle extends Obstacle {
 export interface Spawner {
   /** Every slot in the pool. Only the ones with `active` set are on the track. */
   readonly obstacles: readonly PooledObstacle[];
+  /** The same, for coins. */
+  readonly coins: readonly PooledCoin[];
   /**
    * Builds track ahead and retires what is behind.
    *
@@ -58,6 +61,7 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
   for (let i = 0; i < TRACK.obstaclePoolSize; i += 1) {
     obstacles.push({ active: false, type: 'lowMine', lane: 0, s: 0 });
   }
+  const coins: PooledCoin[] = createCoinPool();
 
   /** Where the next chunk will start, in units from the start of the slide. */
   let nextChunkS = 0;
@@ -65,8 +69,15 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
   /** Counted so a full pool is a loud failure in tests, not a silent gap. */
   let overflowed = false;
 
-  const take = (): PooledObstacle | null => {
+  const takeObstacle = (): PooledObstacle | null => {
     for (const slot of obstacles) {
+      if (!slot.active) return slot;
+    }
+    return null;
+  };
+
+  const takeCoin = (): PooledCoin | null => {
+    for (const slot of coins) {
       if (!slot.active) return slot;
     }
     return null;
@@ -74,8 +85,23 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
 
   const placeChunk = (chunk: Chunk, startS: number): void => {
     for (const placement of chunk.placements) {
-      if (!isObstacleType(placement.type)) continue; // coins and pickups: M3 and M4
-      const slot = take();
+      if (placement.type === 'pickup') continue; // power-ups: M4
+
+      if (placement.type === 'coin') {
+        const slot = takeCoin();
+        if (slot === null) {
+          overflowed = true;
+          continue;
+        }
+        slot.active = true;
+        slot.lane = placement.lane;
+        slot.s = startS + placement.z;
+        slot.y = placement.y ?? COINS.restHeight;
+        continue;
+      }
+
+      if (!isObstacleType(placement.type)) continue;
+      const slot = takeObstacle();
       if (slot === null) {
         overflowed = true;
         return;
@@ -98,6 +124,7 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
 
   return {
     obstacles,
+    coins,
     get lastChunkId() {
       return lastChunkId;
     },
@@ -105,6 +132,11 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
     update(playerS: number, tier: number) {
       // Retire what the player has already passed.
       for (const slot of obstacles) {
+        if (slot.active && slot.s < playerS - TRACK.despawnBehind) {
+          slot.active = false;
+        }
+      }
+      for (const slot of coins) {
         if (slot.active && slot.s < playerS - TRACK.despawnBehind) {
           slot.active = false;
         }
@@ -129,13 +161,14 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
       }
 
       if (overflowed) {
-        console.warn('Slide Rush: obstacle pool is full; raise TRACK.obstaclePoolSize');
+        console.warn('Slide Rush: a spawn pool is full; raise its size in src/config.ts');
         overflowed = false;
       }
     },
 
     reset() {
       for (const slot of obstacles) slot.active = false;
+      for (const slot of coins) slot.active = false;
       nextChunkS = 0;
       lastChunkId = null;
     },

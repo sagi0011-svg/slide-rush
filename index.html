@@ -20,9 +20,16 @@
       <div id="frame">
         <canvas id="game-canvas"></canvas>
         <div id="hud">
-          <span class="badge" id="hud-left">Slide Rush</span>
-          <span class="badge" id="hud-right"></span>
+          <div class="hud-side">
+            <span class="score" data-hud="score">0</span>
+            <span class="best" data-hud="best"></span>
+          </div>
+          <div class="hud-side hud-right">
+            <span class="coins" data-hud="coins"></span>
+            <span class="multiplier" data-hud="multiplier"></span>
+          </div>
         </div>
+        <div id="status" data-hud="status"></div>
         <div id="flash"></div>
         <div id="debug"></div>
         <div id="message"><span id="message-text"></span></div>

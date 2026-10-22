@@ -218,6 +218,15 @@ export const OBSTACLES = {
 export const COINS = {
   /** Distance at which a coin is collected, in units. */
   pickupRadius: 0.8,
+  /** How high a coin floats above the slide when a chunk does not say, in units. */
+  restHeight: 1,
+  /** Placeholder size, in units. */
+  radius: 0.38,
+  thickness: 0.1,
+  /** How fast a coin spins, in turns per second. */
+  spinRate: 0.9,
+  /** How many coins can be on the track at once; the pool never grows (rule 7). */
+  poolSize: 160,
 } as const;
 
 /** Power-ups (SPEC 9). */

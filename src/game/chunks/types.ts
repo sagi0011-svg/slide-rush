@@ -17,6 +17,11 @@ export interface Placement {
   lane: number;
   /** Distance from the start of the chunk, in units. */
   z: number;
+  /**
+   * How high above the slide this sits, in units. Only coins and pickups use
+   * it, for arcs over a jump; left out, a coin floats at COINS.restHeight.
+   */
+  y?: number;
 }
 
 export interface Chunk {
@@ -44,4 +49,11 @@ export function chunkObstacles(chunk: Chunk, startS: number): Obstacle[] {
     lane: placement.lane,
     s: startS + placement.z,
   }));
+}
+
+/** The coins in a chunk, in the order the player meets them. */
+export function coinPlacements(chunk: Chunk): Placement[] {
+  return chunk.placements
+    .filter((placement) => placement.type === 'coin')
+    .sort((a, b) => a.z - b.z);
 }

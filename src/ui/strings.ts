@@ -7,10 +7,10 @@ export const STRINGS = {
   title: 'Slide Rush',
   loading: 'Loading…',
   webglUnsupported: 'This browser cannot run 3D graphics (WebGL). Try Chrome, Safari or Firefox.',
-  m2Badge: 'M2 — obstacles',
   paused: 'Paused',
   crashed: 'Crashed!',
-  distanceUnit: ' m',
+  best: 'BEST',
+  coinSymbol: '●',
 } as const;
 
 export type StringKey = keyof typeof STRINGS;

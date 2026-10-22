@@ -44,6 +44,7 @@ Source of truth for rules and numbers. All numbers are starting values and live 
 - **Fairness rule (enforced by a test):** every chunk, and every pair of consecutive chunks, has at least one survivable path given lane-change time, jump/slide durations and the max speed of its tiers. A validator test checks all chunks.
 - The validator searches the real player simulation, and is deliberately stricter than the rule above: the path it finds must take **no hits at all** (not even a stumble), must work from **every lane the player could arrive in**, and may only act on a coarse time grid. A chunk that passes is therefore comfortably fair.
 - Coin trails in chunks guide the player along the good path (lines, arcs over jumps).
+- **Coin safety (enforced by a test):** no coin may sit somewhere that can only be reached from a pose that hits an obstacle. Coins show the way through; one that led into a wall would do the opposite.
 - MVP target: at least 25 chunks across tiers.
 
 ## 7. Obstacles
@@ -60,7 +61,8 @@ Source of truth for rules and numbers. All numbers are starting values and live 
 - Collisions use simple axis-aligned boxes per obstacle and a player box that shrinks when sliding and rises when jumping. Hitboxes are slightly forgiving (about 15% smaller than visuals).
 
 ## 8. Coins
-- Gold spinning coins in lines/arcs defined by chunks. Collect by touching (pickup radius 0.8 units).
+- Gold spinning coins in lines/arcs defined by chunks. Collect by touching (pickup radius 0.8 units, measured from the middle of the player's body).
+- The pickup test sweeps along the slide between one tick and the next, so a coin can never be passed straight through at high speed.
 - Each coin = 10 points × current multiplier. Also adds 1 to the run coin count.
 
 ## 9. Power-ups

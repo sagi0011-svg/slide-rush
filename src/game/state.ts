@@ -5,13 +5,22 @@
  * and what happens when the two meet. Coins and scoring join in M3.
  */
 
-import { OBSTACLES, SIM, SPEED } from '../config';
+import { LANES, OBSTACLES, PLAYER, SIM, SPEED } from '../config';
 import { forwardSpeed, stumbleSpeedFactor } from './speed';
 import { isMoveAction, type GameAction } from './input-actions';
 import { bouncePlayer, createPlayer, queueAction, stepPlayer, type PlayerState } from './player';
 import { createRng, type Rng } from './rng';
 import { createSpawner, type Spawner } from './chunks/spawner';
 import { checkObstacle } from './collisions';
+import { coinCollected } from './coins';
+import {
+  addCoin,
+  addDistance,
+  createScore,
+  resetMultiplier,
+  updateMultiplier,
+  type Score,
+} from './scoring';
 import { tierForTime } from './difficulty';
 import type { Chunk } from './chunks/types';
 
@@ -36,8 +45,10 @@ export interface RunState {
   speed: number;
   /** The player. */
   readonly player: PlayerState;
-  /** The obstacles on the track. */
+  /** The obstacles and coins on the track. */
   readonly spawner: Spawner;
+  /** Points, coins and the multiplier (SPEC 10). */
+  readonly score: Score;
   /** Current difficulty tier (SPEC 5). */
   tier: number;
   phase: RunPhase;
@@ -69,6 +80,7 @@ export function createRunState(seed: number, library?: readonly Chunk[]): RunSta
     speed: SPEED.start,
     player: createPlayer(),
     spawner: library === undefined ? createSpawner(rng) : createSpawner(rng, library),
+    score: createScore(),
     tier: 0,
     phase: 'running',
     deathCause: null,
@@ -114,7 +126,26 @@ function stumble(state: RunState): void {
   state.lastStumbleAt = state.elapsed;
   state.stumbleRecovery = OBSTACLES.stumbleDuration;
   state.shakeTrigger += 1;
-  // Scoring resets the multiplier here too, once M3 adds it.
+  // A stumble knocks the multiplier back to x1 (SPEC 10).
+  resetMultiplier(state.score, state.elapsed);
+}
+
+/** Picks up any coin the player touched on this tick (SPEC 8). */
+function collectCoins(state: RunState): void {
+  const { player } = state;
+  const playerX = player.laneOffset * LANES.width;
+  // The middle of the body, which rises on a jump and drops on a slide.
+  const bodyHeight = player.vertical === 'sliding' ? PLAYER.slideHeight : PLAYER.standHeight;
+  const playerY = player.height + bodyHeight / 2;
+
+  for (const coin of state.spawner.coins) {
+    if (!coin.active) continue;
+    // Cheap reject: anything far along the slide cannot have been touched.
+    if (Math.abs(coin.s - state.distance) > 4) continue;
+    if (!coinCollected(playerX, playerY, state.prevDistance, state.distance, coin)) continue;
+    coin.active = false;
+    addCoin(state.score);
+  }
 }
 
 /** Checks the player against every obstacle they could be touching. */
@@ -163,8 +194,13 @@ export function stepRun(state: RunState, dt: number = SIM.dt): void {
   state.speed = forwardSpeed(state.elapsed) * stumbleSpeedFactor(state.stumbleRecovery);
   state.distance += state.speed * dt;
 
+  // Points for the ground covered, at whatever the multiplier is now (SPEC 10).
+  updateMultiplier(state.score, state.elapsed);
+  addDistance(state.score, state.distance - state.prevDistance);
+
   stepPlayer(state.player, dt);
   state.spawner.update(state.distance, state.tier);
+  collectCoins(state);
   resolveCollisions(state);
 }
 

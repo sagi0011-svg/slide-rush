@@ -16,6 +16,9 @@ import { createRenderer, type Frame, type Renderer } from './render/scene';
 import { frameAlpha, lerp } from './render/interpolate';
 import { createDebugOverlay, isDebugEnabled } from './debug/overlay';
 import { createFeedback } from './ui/feedback';
+import { createHud } from './ui/hud';
+import { browserStorage, createSaveStore } from './game/save';
+import { displayScore } from './game/scoring';
 import { STRINGS } from './ui/strings';
 
 function requireElement<T extends HTMLElement>(id: string): T {
@@ -55,14 +58,19 @@ function boot(): void {
   const input = createInputSource(canvas);
   // Vibration where the browser allows it, and a flash everywhere else.
   const feedback = createFeedback(document.getElementById('flash'));
+  // Browsers refuse to vibrate until the player has touched the page, and
+  // complain loudly about every attempt before then.
+  const unlockFeedback = (): void => feedback.unlock();
+  window.addEventListener('pointerdown', unlockFeedback, { once: true });
+  window.addEventListener('keydown', unlockFeedback, { once: true });
 
   // Watched so a stumble or a death can be felt the moment it happens.
   let lastStumbles = state.stumbles;
   let wasDead = false;
 
-  const hudLeft = requireElement('hud-left');
-  const hudRight = requireElement('hud-right');
-  hudRight.textContent = STRINGS.m2Badge;
+  const hud = createHud(requireElement('frame'));
+  // Best score and total coins, kept between runs (SPEC 10).
+  const save = createSaveStore(browserStorage());
 
   const onResize = (): void => renderer.resize();
   window.addEventListener('resize', onResize);
@@ -89,6 +97,8 @@ function boot(): void {
     sliding: false,
     bump: 0,
     obstacles: state.spawner.obstacles,
+    coins: state.spawner.coins,
+    elapsed: 0,
     shakeTrigger: 0,
     dead: false,
     frameSeconds: 0,
@@ -110,7 +120,11 @@ function boot(): void {
     // Buzz and flash on a trip, and harder when the run ends (SPEC 7).
     if (state.stumbles > lastStumbles) feedback.play('stumble');
     lastStumbles = state.stumbles;
-    if (state.phase === 'dead' && !wasDead) feedback.play('death');
+    if (state.phase === 'dead' && !wasDead) {
+      feedback.play('death');
+      // The run is over: keep the best score and bank the coins (SPEC 10).
+      save.finishRun(displayScore(state.score), state.score.coins);
+    }
     wasDead = state.phase === 'dead';
 
     // Death restarts the run after a short beat. M6 replaces this with a
@@ -118,6 +132,7 @@ function boot(): void {
     if (shouldRestart(state)) {
       state = createRunState(seedParam === null ? randomSeed() : seed);
       frame.obstacles = state.spawner.obstacles;
+      frame.coins = state.spawner.coins;
       lastStumbles = 0;
       wasDead = false;
       stepper.reset();
@@ -133,18 +148,19 @@ function boot(): void {
     frame.height = lerp(player.prevHeight, player.height, alpha);
     frame.sliding = isSliding(player);
     frame.bump = player.bump;
+    frame.elapsed = state.elapsed;
     frame.shakeTrigger = state.shakeTrigger;
     frame.dead = state.phase === 'dead';
     frame.frameSeconds = frameSeconds;
     renderer.draw(frame);
 
-    if (state.phase === 'dead') {
-      hudLeft.textContent = STRINGS.crashed;
-    } else if (state.paused) {
-      hudLeft.textContent = STRINGS.paused;
-    } else {
-      hudLeft.textContent = `${Math.floor(state.distance)}${STRINGS.distanceUnit}`;
-    }
+    hud.update({
+      score: displayScore(state.score),
+      coins: state.score.coins,
+      multiplier: state.score.multiplier,
+      bestScore: save.data.bestScore,
+      status: state.phase === 'dead' ? 'dead' : state.paused ? 'paused' : 'running',
+    });
 
     debug.update(frameSeconds, {
       elapsed: state.elapsed,

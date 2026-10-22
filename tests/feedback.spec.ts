@@ -67,6 +67,7 @@ describe('createFeedback', () => {
     const vibrate = vi.fn(() => true);
     setVibrate(vibrate);
     const feedback = createFeedback(null);
+    feedback.unlock();
 
     feedback.play('stumble');
     expect(vibrate).toHaveBeenCalledWith([...FEEDBACK.vibration.stumble]);
@@ -116,6 +117,7 @@ describe('createFeedback', () => {
     setVibrate(vibrate);
     const element = fakeElement();
     const feedback = createFeedback(element as unknown as HTMLElement);
+    feedback.unlock();
 
     feedback.setEnabled(false);
     vibrate.mockClear();
@@ -133,7 +135,9 @@ describe('createFeedback', () => {
   it('stops any buzz that is already running when switched off', () => {
     const vibrate = vi.fn(() => true);
     setVibrate(vibrate);
-    createFeedback(null).setEnabled(false);
+    const feedback = createFeedback(null);
+    feedback.unlock();
+    feedback.setEnabled(false);
     expect(vibrate).toHaveBeenCalledWith([0]);
   });
 
@@ -143,6 +147,7 @@ describe('createFeedback', () => {
     });
     const element = fakeElement();
     const feedback = createFeedback(element as unknown as HTMLElement);
+    feedback.unlock();
 
     expect(() => feedback.play('death')).not.toThrow();
     // The flash still happens, so the player is told something either way.
@@ -152,6 +157,48 @@ describe('createFeedback', () => {
   it('works with no flash element at all', () => {
     setVibrate(vi.fn(() => true));
     const feedback = createFeedback(null);
+    feedback.unlock();
     expect(() => feedback.play('stumble')).not.toThrow();
+  });
+});
+
+describe('waiting for the first tap', () => {
+  it('does not ask to vibrate before the player has touched the page', () => {
+    // Browsers refuse, and log an error for every attempt.
+    const vibrate = vi.fn(() => true);
+    setVibrate(vibrate);
+    const feedback = createFeedback(null);
+
+    expect(feedback.unlocked).toBe(false);
+    feedback.play('stumble');
+    feedback.play('death');
+    expect(vibrate).not.toHaveBeenCalled();
+  });
+
+  it('still flashes before the first tap', () => {
+    setVibrate(vi.fn(() => true));
+    const element = fakeElement();
+    const feedback = createFeedback(element as unknown as HTMLElement);
+
+    feedback.play('death');
+    expect(element.classList.current.has('death')).toBe(true);
+  });
+
+  it('vibrates once the player has touched the page', () => {
+    const vibrate = vi.fn(() => true);
+    setVibrate(vibrate);
+    const feedback = createFeedback(null);
+
+    feedback.unlock();
+    expect(feedback.unlocked).toBe(true);
+    feedback.play('stumble');
+    expect(vibrate).toHaveBeenCalledWith([...FEEDBACK.vibration.stumble]);
+  });
+
+  it('does not try to stop a buzz that was never allowed to start', () => {
+    const vibrate = vi.fn(() => true);
+    setVibrate(vibrate);
+    createFeedback(null).setEnabled(false);
+    expect(vibrate).not.toHaveBeenCalled();
   });
 });

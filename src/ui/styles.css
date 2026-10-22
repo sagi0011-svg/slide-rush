@@ -87,9 +87,57 @@ body {
   text-shadow: var(--hud-shadow);
 }
 
-#hud .badge {
-  opacity: 0.75;
+.hud-side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   font-variant-numeric: tabular-nums;
+}
+
+.hud-right {
+  align-items: flex-end;
+}
+
+.score {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.best,
+.multiplier {
+  font-size: 12px;
+  opacity: 0.75;
+  letter-spacing: 0.06em;
+  /* Keep the row from jumping about when these appear and disappear. */
+  min-height: 14px;
+}
+
+.coins {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffd43b;
+}
+
+.multiplier {
+  color: #ffd43b;
+  opacity: 1;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* "Paused" / "Crashed!", across the middle of the frame. */
+#status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow: var(--hud-shadow);
 }
 
 #message {

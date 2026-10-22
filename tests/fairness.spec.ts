@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { DIFFICULTY, TRACK } from '../src/config';
+import { COINS, DIFFICULTY, PLAYER, TRACK } from '../src/config';
 import { CHUNK_LIBRARY } from '../src/game/chunks';
-import { chunkObstacles, type Chunk } from '../src/game/chunks/types';
+import { chunkObstacles, coinPlacements, type Chunk } from '../src/game/chunks/types';
 import { breatherForTier, chunksForTier } from '../src/game/chunks/spawner';
 import { findSurvivablePath, pairNeedsSearch, START_LANES } from '../src/game/fairness';
 import { MAX_TIER, tierMaxSpeed } from '../src/game/difficulty';
-import type { Obstacle } from '../src/game/obstacles';
+import { createBox, obstacleBox, type Obstacle } from '../src/game/obstacles';
+import { boxesOverlap, playerBox } from '../src/game/collisions';
+import { createPlayer, type PlayerState } from '../src/game/player';
 
 /**
  * The fairness rule from SPEC 6: every chunk, and every pair of consecutive
@@ -246,5 +248,103 @@ describe('the validator itself', () => {
     });
     expect(result.survivable).toBe(true);
     expect(result.path.map((move) => move.action)).toContain('jump');
+  });
+});
+
+describe('coin trails (SPEC 6 and 8)', () => {
+  it('puts coins in every chunk that is not a breather', () => {
+    const withCoins = CHUNK_LIBRARY.filter((chunk) =>
+      chunk.placements.some((placement) => placement.type === 'coin'),
+    );
+    expect(withCoins.length).toBe(CHUNK_LIBRARY.length);
+  });
+
+  /**
+   * Every way the player can be standing at a given moment: on their feet,
+   * sliding, or at some height in a jump.
+   */
+  function poses(): Array<{ name: string; player: PlayerState; centre: number }> {
+    const out: Array<{ name: string; player: PlayerState; centre: number }> = [];
+
+    const standing = createPlayer();
+    out.push({ name: 'standing', player: standing, centre: PLAYER.standHeight / 2 });
+
+    const sliding = createPlayer();
+    sliding.vertical = 'sliding';
+    out.push({ name: 'sliding', player: sliding, centre: PLAYER.slideHeight / 2 });
+
+    for (let height = 0.05; height <= PLAYER.jumpHeight + 1e-9; height += 0.05) {
+      const jumping = createPlayer();
+      jumping.vertical = 'jumping';
+      jumping.height = height;
+      out.push({
+        name: `jumping at ${height.toFixed(2)}`,
+        player: jumping,
+        centre: height + PLAYER.standHeight / 2,
+      });
+    }
+    return out;
+  }
+
+  it('never puts a coin somewhere it can only be reached by being hit', () => {
+    // Coins are meant to show the way through. A coin that can only be
+    // collected from a pose that hits something would do the exact opposite.
+    const box = createBox();
+
+    for (const chunk of CHUNK_LIBRARY) {
+      const obstacles = chunkObstacles(chunk, 0);
+
+      for (const coin of coinPlacements(chunk)) {
+        const coinY = coin.y ?? COINS.restHeight;
+
+        // Only obstacles the player would be inside when taking this coin matter.
+        const inTheWay = obstacles.filter((obstacle) => {
+          if (obstacle.lane !== coin.lane) return false;
+          obstacleBox(obstacle, box);
+          return Math.abs(coin.z - box.z) < box.halfD + PLAYER.radius;
+        });
+        if (inTheWay.length === 0) continue;
+
+        const safe = poses().filter((pose) => {
+          // Close enough to pick the coin up?
+          if (Math.abs(pose.centre - coinY) > COINS.pickupRadius) return false;
+          // And not touching anything while doing it?
+          return inTheWay.every((obstacle) => {
+            const player = playerBox(pose.player, coin.z, createBox());
+            return !boxesOverlap(player, obstacleBox(obstacle, createBox()));
+          });
+        });
+
+        expect(
+          safe.length,
+          `${chunk.id}: the coin at lane ${coin.lane}, z ${coin.z}, height ${coinY} ` +
+            `can only be taken by hitting ${inTheWay.map((o) => o.type).join(' or ')}`,
+        ).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('keeps every coin within reach of a player on the slide', () => {
+    // Nothing should be floating higher than a jump can take you.
+    for (const chunk of CHUNK_LIBRARY) {
+      for (const coin of coinPlacements(chunk)) {
+        const y = coin.y ?? COINS.restHeight;
+        expect(y, `${chunk.id}: a coin at height ${y}`).toBeGreaterThan(0);
+        expect(y, `${chunk.id}: a coin at height ${y}`).toBeLessThanOrEqual(
+          PLAYER.jumpHeight + COINS.pickupRadius,
+        );
+      }
+    }
+  });
+
+  it('never stacks two coins in the same spot', () => {
+    for (const chunk of CHUNK_LIBRARY) {
+      const seen = new Set<string>();
+      for (const coin of coinPlacements(chunk)) {
+        const key = `${coin.lane}/${coin.z.toFixed(2)}/${(coin.y ?? COINS.restHeight).toFixed(2)}`;
+        expect(seen.has(key), `${chunk.id}: two coins at ${key}`).toBe(false);
+        seen.add(key);
+      }
+    }
   });
 });
