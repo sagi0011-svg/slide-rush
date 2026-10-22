@@ -81,7 +81,16 @@ export function breatherForTier(tier: number): number {
   return gaps[index] as number;
 }
 
-export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRARY): Spawner {
+/**
+ * @param scripted chunks laid down in order before the random ones, used by
+ *   the first-run tutorial so its three lessons always arrive in the same
+ *   place (SPEC 11)
+ */
+export function createSpawner(
+  rng: Rng,
+  library: readonly Chunk[] = CHUNK_LIBRARY,
+  scripted: readonly Chunk[] = [],
+): Spawner {
   const obstacles: PooledObstacle[] = [];
   for (let i = 0; i < TRACK.obstaclePoolSize; i += 1) {
     obstacles.push({ active: false, type: 'lowMine', lane: 0, s: 0 });
@@ -93,6 +102,7 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
   /** Where the next chunk will start, in units from the start of the slide. */
   let nextChunkS = 0;
   let lastChunkId: string | null = null;
+  let scriptedPlaced = 0;
   /** Counted so a full pool is a loud failure in tests, not a silent gap. */
   let overflowed = false;
 
@@ -148,6 +158,13 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
   };
 
   const pick = (tier: number, easyOnly: boolean): Chunk | null => {
+    // The scripted opening comes first, in order, whatever the tier says.
+    if (scriptedPlaced < scripted.length) {
+      const next = scripted[scriptedPlaced] as Chunk;
+      scriptedPlaced += 1;
+      return next;
+    }
+
     const forTier = chunksForTier(tier, library);
     if (forTier.length === 0) return null;
 
@@ -223,6 +240,7 @@ export function createSpawner(rng: Rng, library: readonly Chunk[] = CHUNK_LIBRAR
       pickupPending = false;
       nextChunkS = 0;
       lastChunkId = null;
+      scriptedPlaced = 0;
     },
   };
 }

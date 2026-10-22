@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DIFFICULTY, PLAYER, TRACK } from '../src/config';
 import { CHUNK_LIBRARY } from '../src/game/chunks';
+import { TUTORIAL_CHUNKS } from '../src/game/chunks/tutorial';
 import { chunkObstacles, type Chunk } from '../src/game/chunks/types';
 import { breatherForTier, chunksForTier, createSpawner } from '../src/game/chunks/spawner';
 import { MAX_TIER, tierForTime, tierMaxSpeed } from '../src/game/difficulty';
@@ -146,7 +147,8 @@ describe('chunk design rules', () => {
       return problems;
     };
 
-    for (const chunk of CHUNK_LIBRARY) {
+    // The tutorial's own chunks are held to the same rules.
+    for (const chunk of [...CHUNK_LIBRARY, ...TUTORIAL_CHUNKS]) {
       it(chunk.id, () => {
         expect(check(chunk).join('; ')).toBe('');
       });

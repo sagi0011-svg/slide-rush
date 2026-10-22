@@ -287,6 +287,22 @@ export const FEEDBACK = {
   flashTime: 0.35,
 } as const;
 
+/** The first-run tutorial (SPEC 11). */
+export const TUTORIAL = {
+  /** How far ahead of the obstacle the slide starts holding, in units. */
+  holdDistance: 14,
+  /** How fast the slide creeps while a prompt waits, as a fraction of normal. */
+  holdSpeedFactor: 0.18,
+} as const;
+
+/** The death beat before the game over screen (SPEC 11). */
+export const DEATH = {
+  /** How long the beat lasts, in seconds. */
+  beatTime: 0.6,
+  /** How fast the world moves during it, as a fraction of normal. */
+  slowMoFactor: 0.22,
+} as const;
+
 /** Local save (SPEC 10). */
 export const SAVE = {
   /** Versioned localStorage key, so an old save shape can never break a new build. */

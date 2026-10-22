@@ -16,10 +16,10 @@ export interface HudValues {
   coins: number;
   multiplier: number;
   bestScore: number;
-  /** Shown instead of the score when the run is over or paused. */
-  status: 'running' | 'paused' | 'dead';
   /** How much is left of each power-up, 0..1. Zero means it is not running. */
   powerUps: Readonly<Record<PowerUpType, number>>;
+  /** False while a screen is up, which hides the HUD behind it (SPEC 11). */
+  visible: boolean;
 }
 
 export interface Hud {
@@ -83,7 +83,7 @@ export function createHud(root: HTMLElement): Hud {
   const best = root.querySelector<HTMLElement>('[data-hud="best"]');
   const coins = root.querySelector<HTMLElement>('[data-hud="coins"]');
   const multiplier = root.querySelector<HTMLElement>('[data-hud="multiplier"]');
-  const status = root.querySelector<HTMLElement>('[data-hud="status"]');
+  const hudBar = root.querySelector<HTMLElement>('#hud');
 
   // The power-up rail is built once, then only shown and hidden (rule 7).
   const powerUpRail = root.querySelector<HTMLElement>('[data-hud="powerups"]');
@@ -103,10 +103,22 @@ export function createHud(root: HTMLElement): Hud {
   let lastCoins = -1;
   let lastMultiplier = -1;
   let lastBest = -1;
-  let lastStatus = '';
+  let lastVisible: boolean | null = null;
 
   return {
     update(values) {
+      if (values.visible !== lastVisible) {
+        lastVisible = values.visible;
+        if (hudBar !== null) hudBar.hidden = !values.visible;
+        for (const row of powerUpRows.values()) {
+          // Hidden rows stay hidden; the rest follow the HUD.
+          if (!values.visible) row.row.hidden = true;
+        }
+        // Force the rows to be reconsidered next time the HUD comes back.
+        if (!values.visible) lastPowerUps.clear();
+      }
+      if (!values.visible) return;
+
       if (score !== null && values.score !== lastScore) {
         score.textContent = formatNumber(values.score);
         lastScore = values.score;
@@ -136,16 +148,6 @@ export function createHud(root: HTMLElement): Hud {
 
         row.row.hidden = left <= 0;
         if (left > 0) row.fill.style.transform = `scaleX(${left})`;
-      }
-
-      if (status !== null && values.status !== lastStatus) {
-        status.textContent =
-          values.status === 'dead'
-            ? STRINGS.crashed
-            : values.status === 'paused'
-              ? STRINGS.paused
-              : '';
-        lastStatus = values.status;
       }
     },
   };

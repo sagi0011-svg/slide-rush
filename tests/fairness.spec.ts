@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { COINS, DIFFICULTY, PLAYER, POWERUPS, TRACK } from '../src/config';
 import { CHUNK_LIBRARY } from '../src/game/chunks';
+import { TUTORIAL_CHUNKS } from '../src/game/chunks/tutorial';
 import { chunkObstacles, coinPlacements, type Chunk } from '../src/game/chunks/types';
 import { breatherForTier, chunksForTier } from '../src/game/chunks/spawner';
 import {
@@ -100,7 +101,9 @@ describe('chunk fairness (SPEC 6)', () => {
   });
 
   describe('every chunk on its own is survivable', () => {
-    for (const chunk of CHUNK_LIBRARY) {
+    // Including the tutorial's, even though it holds the slide for the
+    // player: they are still ordinary track once the lesson is over.
+    for (const chunk of [...CHUNK_LIBRARY, ...TUTORIAL_CHUNKS]) {
       for (const startLane of START_LANES) {
         it(`${chunk.id} from lane ${startLane}`, () => {
           const obstacles = chunkObstacles(chunk, 0);

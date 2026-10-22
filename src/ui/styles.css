@@ -15,6 +15,16 @@
   box-sizing: border-box;
 }
 
+/*
+ * The browser hides [hidden] elements with its own `display: none`, which any
+ * author `display` quietly beats. Every overlay here sets a display, so
+ * without this an element told to hide simply would not — which has already
+ * cost us a stuck power-up bar and a HUD left on top of the title screen.
+ */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -147,15 +157,6 @@ body {
   text-shadow: var(--hud-shadow);
 }
 
-/*
- * An author `display` beats the browser's own rule for the `hidden`
- * attribute, so without this a power-up that is not running still shows,
- * with whatever was left on its bar.
- */
-.powerup[hidden] {
-  display: none;
-}
-
 .powerup .dot {
   width: 11px;
   height: 11px;
@@ -194,18 +195,197 @@ body {
   background: #ff922b;
 }
 
-/* "Paused" / "Crashed!", across the middle of the frame. */
-#status {
+/* The pause button, top right under the coin count (SPEC 11). */
+#pause-button {
   position: absolute;
-  inset: 0;
+  right: 12px;
+  top: calc(env(safe-area-inset-top, 0px) + 62px);
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(11, 23, 38, 0.4);
+  cursor: pointer;
+  /* Comfortably bigger than the 44px Apple asks for, once the ring counts. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+#pause-button span {
+  display: block;
+  width: 4px;
+  height: 15px;
+  border-radius: 2px;
+  background: #fff;
+}
+
+/* The first-run prompts (SPEC 11). */
+#tutorial {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 86px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  text-align: center;
+}
+
+#tutorial-text {
+  margin: 0;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: rgba(11, 23, 38, 0.72);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.35;
+  animation: prompt-in 0.25s ease-out;
+}
+
+@keyframes prompt-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+#tutorial-skip {
+  border: 0;
+  background: none;
+  color: var(--hud-text);
+  opacity: 0.65;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 8px 16px;
+}
+
+/* Start, pause and game over (SPEC 11). */
+#screens {
+  position: absolute;
+  inset: 0;
   pointer-events: none;
-  font-size: 30px;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 28px calc(env(safe-area-inset-bottom, 0px) + 32px);
+  text-align: center;
+  pointer-events: auto;
+  background: rgba(7, 17, 30, 0.82);
+  animation: screen-in 0.18s ease-out;
+}
+
+@keyframes screen-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.screen h1 {
+  margin: 0;
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.screen h2 {
+  margin: 0 0 4px;
+  font-size: 28px;
+}
+
+.screen .muted {
+  margin: 0 0 18px;
+  opacity: 0.7;
+  font-size: 15px;
+}
+
+.screen .stat {
+  margin: 0 0 18px;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+  min-height: 18px;
+}
+
+.screen button {
+  width: 100%;
+  max-width: 260px;
+  padding: 15px 20px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 17px;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  text-shadow: var(--hud-shadow);
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.screen button.primary {
+  background: #ffd43b;
+  color: #0b1726;
+  font-size: 19px;
+  padding: 17px 20px;
+}
+
+.screen button.ghost {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--hud-text);
+  font-size: 15px;
+  padding: 12px 20px;
+}
+
+.badge-new {
+  margin: 0;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: #ffd43b;
+  color: #0b1726;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.results {
+  margin: 14px 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 260px;
+}
+
+.results > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.results dt {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  opacity: 0.65;
+}
+
+.results dd {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 #message {

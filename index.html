@@ -30,7 +30,54 @@
           </div>
         </div>
         <div id="powerups" data-hud="powerups"></div>
-        <div id="status" data-hud="status"></div>
+
+        <button id="pause-button" type="button" aria-label="Pause">
+          <span></span><span></span>
+        </button>
+
+        <div id="tutorial" hidden>
+          <p id="tutorial-text"></p>
+          <button id="tutorial-skip" type="button"></button>
+        </div>
+
+        <div id="screens">
+          <section id="screen-start" class="screen" hidden>
+            <h1 id="start-title"></h1>
+            <p id="start-tagline" class="muted"></p>
+            <p id="start-best" class="stat"></p>
+            <button id="start-play" class="primary" type="button"></button>
+            <button id="start-sound" class="ghost" type="button"></button>
+          </section>
+
+          <section id="screen-paused" class="screen" hidden>
+            <h2 id="paused-title"></h2>
+            <button id="paused-resume" class="primary" type="button"></button>
+            <button id="paused-restart" class="ghost" type="button"></button>
+            <button id="paused-sound" class="ghost" type="button"></button>
+            <button id="paused-home" class="ghost" type="button"></button>
+          </section>
+
+          <section id="screen-over" class="screen" hidden>
+            <h2 id="over-title"></h2>
+            <p id="over-newbest" class="badge-new" hidden></p>
+            <dl class="results">
+              <div>
+                <dt id="over-score-label"></dt>
+                <dd id="over-score"></dd>
+              </div>
+              <div>
+                <dt id="over-coins-label"></dt>
+                <dd id="over-coins"></dd>
+              </div>
+              <div>
+                <dt id="over-best-label"></dt>
+                <dd id="over-best"></dd>
+              </div>
+            </dl>
+            <button id="over-again" class="primary" type="button"></button>
+            <button id="over-home" class="ghost" type="button"></button>
+          </section>
+        </div>
         <div id="flash"></div>
         <div id="debug"></div>
         <div id="message"><span id="message-text"></span></div>

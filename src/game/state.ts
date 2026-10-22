@@ -5,7 +5,7 @@
  * and what happens when the two meet. Coins and scoring join in M3.
  */
 
-import { LANES, OBSTACLES, PLAYER, SIM, SPEED } from '../config';
+import { DEATH, LANES, OBSTACLES, PLAYER, SIM, SPEED } from '../config';
 import { forwardSpeed, stumbleSpeedFactor } from './speed';
 import { isMoveAction, type GameAction } from './input-actions';
 import { bouncePlayer, createPlayer, queueAction, stepPlayer, type PlayerState } from './player';
@@ -35,6 +35,14 @@ import {
   type Score,
 } from './scoring';
 import { tierForTime } from './difficulty';
+import {
+  createTutorial,
+  tutorialSpeedFactor,
+  tutorialTakesAction,
+  updateTutorial,
+  type TutorialState,
+} from './tutorial';
+import { TUTORIAL_CHUNKS } from './chunks/tutorial';
 import type { Chunk } from './chunks/types';
 
 /** What the run is doing right now. */
@@ -68,6 +76,8 @@ export interface RunState {
   nextPickupAt: number;
   /** Counts up whenever a shield takes a hit, so the renderer can pop it. */
   shieldPops: number;
+  /** The first-run tutorial, if this run is showing it (SPEC 11). */
+  readonly tutorial: TutorialState;
   /** Current difficulty tier (SPEC 5). */
   tier: number;
   phase: RunPhase;
@@ -88,7 +98,21 @@ export interface RunState {
 
 export { forwardSpeed };
 
-export function createRunState(seed: number, library?: readonly Chunk[]): RunState {
+export interface RunOptions {
+  /** Chunks to pick from. Defaults to the whole library. */
+  library?: readonly Chunk[];
+  /** Whether this run should teach the controls first (SPEC 11). */
+  tutorial?: boolean;
+}
+
+export function createRunState(
+  seed: number,
+  libraryOrOptions?: readonly Chunk[] | RunOptions,
+): RunState {
+  const options: RunOptions = Array.isArray(libraryOrOptions)
+    ? { library: libraryOrOptions }
+    : ((libraryOrOptions as RunOptions | undefined) ?? {});
+  const withTutorial = options.tutorial === true;
   const rng = createRng(seed);
   return {
     rng,
@@ -98,7 +122,8 @@ export function createRunState(seed: number, library?: readonly Chunk[]): RunSta
     prevDistance: 0,
     speed: SPEED.start,
     player: createPlayer(),
-    spawner: library === undefined ? createSpawner(rng) : createSpawner(rng, library),
+    spawner: createSpawner(rng, options.library ?? undefined, withTutorial ? TUTORIAL_CHUNKS : []),
+    tutorial: createTutorial(withTutorial),
     score: createScore(),
     powerUps: createPowerUps(),
     nextPickupAt: nextPickupDelay(rng),
@@ -126,7 +151,12 @@ export function applyAction(state: RunState, action: GameAction): void {
   }
   // Inputs while paused or dead are dropped rather than queued up.
   if (state.paused || state.phase === 'dead') return;
-  if (isMoveAction(action)) queueAction(state.player, action);
+  if (!isMoveAction(action)) return;
+
+  // A prompt waiting for this move is satisfied by it, and the move still
+  // happens — the player is being taught by doing (SPEC 11).
+  tutorialTakesAction(state.tutorial, action);
+  queueAction(state.player, action);
 }
 
 function die(state: RunState, cause: DeathCause): void {
@@ -224,6 +254,10 @@ function resolveCollisions(state: RunState): void {
     const hit = checkObstacle(state.player, state.distance, state.prevDistance, obstacle);
     if (hit === null) continue;
 
+    // A first-time player cannot be killed by the obstacle they are being
+    // taught to get past (SPEC 11).
+    if (!state.tutorial.done) continue;
+
     // Boosting, or in a moment of grace: the obstacle is smashed aside and
     // nothing happens to the player (SPEC 9).
     if (isInvulnerable(state.powerUps)) {
@@ -260,7 +294,14 @@ export function stepRun(state: RunState, dt: number = SIM.dt): void {
   if (state.paused) return;
 
   if (state.phase === 'dead') {
+    // The death beat (SPEC 11): the world keeps moving, far slower, so the
+    // crash reads as a moment rather than a freeze. Nothing is scored and
+    // nothing else can be hit.
     state.deadFor += dt;
+    if (state.deadFor <= DEATH.beatTime) {
+      state.prevDistance = state.distance;
+      state.distance += state.speed * DEATH.slowMoFactor * dt;
+    }
     return;
   }
 
@@ -272,7 +313,12 @@ export function stepRun(state: RunState, dt: number = SIM.dt): void {
   if (state.stumbleRecovery > 0) {
     state.stumbleRecovery = Math.max(0, state.stumbleRecovery - dt);
   }
-  const baseSpeed = forwardSpeed(state.elapsed) * stumbleSpeedFactor(state.stumbleRecovery);
+  // A tutorial prompt holds the slide to a crawl until the player acts.
+  updateTutorial(state.tutorial, state.distance);
+  const baseSpeed =
+    forwardSpeed(state.elapsed) *
+    stumbleSpeedFactor(state.stumbleRecovery) *
+    tutorialSpeedFactor(state.tutorial);
   state.speed = speedWithPowerUps(state.powerUps, baseSpeed);
   state.distance += state.speed * dt;
   stepPowerUps(state.powerUps, dt, baseSpeed);
@@ -290,7 +336,7 @@ export function stepRun(state: RunState, dt: number = SIM.dt): void {
   resolveCollisions(state);
 }
 
-/** True once the death beat has played and the run should start again. */
-export function shouldRestart(state: RunState): boolean {
-  return state.phase === 'dead' && state.deadFor >= OBSTACLES.restartDelay;
+/** True once the death beat has played and the game over screen is due. */
+export function deathBeatOver(state: RunState): boolean {
+  return state.phase === 'dead' && state.deadFor >= DEATH.beatTime;
 }

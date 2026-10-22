@@ -1,5 +1,6 @@
 /**
- * Entry point: boot the renderer, listen for input, run the fixed-timestep loop.
+ * Entry point: boot the renderer, listen for input, run the fixed-timestep
+ * loop, and move between the screens (SPEC 11).
  *
  * The loop runs game logic at a fixed 60 Hz and renders with interpolation,
  * so the game behaves the same at any display refresh rate (CLAUDE.md rule 5).
@@ -8,18 +9,34 @@
 import './ui/styles.css';
 import { SIM } from './config';
 import { createFixedStepper } from './game/loop';
-import { applyAction, createRunState, grantPowerUp, shouldRestart, stepRun } from './game/state';
-import { isActive, POWERUP_TYPES, remainingFraction, type PowerUpType } from './game/powerups';
+import {
+  applyAction,
+  createRunState,
+  deathBeatOver,
+  grantPowerUp,
+  stepRun,
+  type RunState,
+} from './game/state';
 import { randomSeed } from './game/rng';
 import { isSliding } from './game/player';
+import { isActive, POWERUP_TYPES, remainingFraction, type PowerUpType } from './game/powerups';
+import {
+  applyFlowEvent,
+  createFlow,
+  isSimulating,
+  needsFreshRun,
+  type FlowEvent,
+} from './game/flow';
+import { currentStep, skipTutorial } from './game/tutorial';
+import { browserStorage, createSaveStore } from './game/save';
+import { displayScore } from './game/scoring';
 import { createInputSource } from './input';
 import { createRenderer, type Frame, type Renderer } from './render/scene';
 import { frameAlpha, lerp } from './render/interpolate';
 import { createDebugOverlay, isDebugEnabled } from './debug/overlay';
 import { createFeedback } from './ui/feedback';
 import { createHud } from './ui/hud';
-import { browserStorage, createSaveStore } from './game/save';
-import { displayScore } from './game/scoring';
+import { createScreens } from './ui/screens';
 import { STRINGS } from './ui/strings';
 
 function requireElement<T extends HTMLElement>(id: string): T {
@@ -39,11 +56,10 @@ function boot(): void {
   // A seed can be forced with ?seed=123 so a run can be reproduced exactly.
   const seedParam = new URLSearchParams(window.location.search).get('seed');
   const parsedSeed = seedParam === null ? Number.NaN : Number(seedParam);
-  const seed = Number.isFinite(parsedSeed) ? parsedSeed : randomSeed();
+  const fixedSeed = Number.isFinite(parsedSeed) ? parsedSeed : null;
 
-  // `let` because death starts a whole new run (temporary until M6 adds a
-  // proper game-over screen).
-  let state = createRunState(seed);
+  const save = createSaveStore(browserStorage());
+  const flow = createFlow();
   const stepper = createFixedStepper(SIM.dt, SIM.maxTicksPerFrame);
   const debug = createDebugOverlay(requireElement('debug'), isDebugEnabled());
 
@@ -56,8 +72,14 @@ function boot(): void {
     return;
   }
 
+  const newRun = (): RunState =>
+    createRunState(fixedSeed ?? randomSeed(), { tutorial: !save.data.tutorialSeen });
+
+  let state = newRun();
+  let lastStumbles = state.stumbles;
+  let wasDead = false;
+
   const input = createInputSource(canvas);
-  // Vibration where the browser allows it, and a flash everywhere else.
   const feedback = createFeedback(document.getElementById('flash'));
   // Browsers refuse to vibrate until the player has touched the page, and
   // complain loudly about every attempt before then.
@@ -65,50 +87,15 @@ function boot(): void {
   window.addEventListener('pointerdown', unlockFeedback, { once: true });
   window.addEventListener('keydown', unlockFeedback, { once: true });
 
-  // Watched so a stumble or a death can be felt the moment it happens.
-  let lastStumbles = state.stumbles;
-  let wasDead = false;
-
-  const hud = createHud(requireElement('frame'));
-  // Best score and total coins, kept between runs (SPEC 10).
-  const save = createSaveStore(browserStorage());
-
-  const onResize = (): void => renderer.resize();
-  window.addEventListener('resize', onResize);
-  window.addEventListener('orientationchange', onResize);
-
-  // Pause when the tab or app goes away, and never try to catch up the lost
-  // time when it comes back (SPEC 11).
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      state.paused = true;
-    } else {
-      stepper.reset();
-      lastFrameMs = performance.now();
-    }
+  // Whether the player is on a keyboard, so the prompts name the right thing.
+  let usingKeyboard = false;
+  window.addEventListener('keydown', () => {
+    usingKeyboard = true;
   });
 
-  // Debug keys: 1, 2 and 3 grant the three power-ups, so they can be tried
-  // without waiting for a pickup (SPEC 13).
-  if (debug.enabled) {
-    const debugGrants: Record<string, PowerUpType> = {
-      Digit1: 'shield',
-      Digit2: 'magnet',
-      Digit3: 'boost',
-    };
-    window.addEventListener('keydown', (event) => {
-      const type = debugGrants[event.code];
-      if (type === undefined) return;
-      grantPowerUp(state, type);
-    });
-  }
+  const hud = createHud(requireElement('frame'));
 
-  // Reused every frame rather than rebuilt, like the frame object (rule 7).
-  const powerUpBars: Record<PowerUpType, number> = { shield: 0, magnet: 0, boost: 0 };
-
-  let lastFrameMs = performance.now();
-
-  // One frame object, reused every frame: no allocations in the hot loop (rule 7).
+  // One frame object, reused every frame: no allocations in the hot loop.
   const frame: Frame = {
     distance: 0,
     laneOffset: 0,
@@ -126,33 +113,11 @@ function boot(): void {
     frameSeconds: 0,
   };
 
-  const tick = (nowMs: number): void => {
-    const frameSeconds = (nowMs - lastFrameMs) / 1000;
-    lastFrameMs = nowMs;
+  const handleEvent = (event: FlowEvent): void => {
+    if (!applyFlowEvent(flow, event)) return;
 
-    for (const action of input.drain()) {
-      applyAction(state, action);
-    }
-
-    const plan = stepper.advance(frameSeconds);
-    for (let i = 0; i < plan.ticks; i += 1) {
-      stepRun(state);
-    }
-
-    // Buzz and flash on a trip, and harder when the run ends (SPEC 7).
-    if (state.stumbles > lastStumbles) feedback.play('stumble');
-    lastStumbles = state.stumbles;
-    if (state.phase === 'dead' && !wasDead) {
-      feedback.play('death');
-      // The run is over: keep the best score and bank the coins (SPEC 10).
-      save.finishRun(displayScore(state.score), state.score.coins);
-    }
-    wasDead = state.phase === 'dead';
-
-    // Death restarts the run after a short beat. M6 replaces this with a
-    // proper game-over screen.
-    if (shouldRestart(state)) {
-      state = createRunState(seedParam === null ? randomSeed() : seed);
+    if (needsFreshRun(event)) {
+      state = newRun();
       frame.obstacles = state.spawner.obstacles;
       frame.coins = state.spawner.coins;
       frame.pickup = state.spawner.pickup;
@@ -160,11 +125,112 @@ function boot(): void {
       wasDead = false;
       stepper.reset();
     }
+    // Keeping the run's own pause in step means its clock never runs on
+    // behind a screen.
+    state.paused = flow.phase !== 'playing';
+    screens.show(flow.phase);
+    screens.setBestScore(save.data.bestScore);
+  };
+
+  const screens = createScreens({
+    onEvent: handleEvent,
+    onToggleSound() {
+      const muted = !save.data.muted;
+      save.update({ muted });
+      screens.setMuted(muted);
+      // There is nothing to silence until the sound manager arrives in M7.
+    },
+    onSkipTutorial() {
+      skipTutorial(state.tutorial);
+      save.update({ tutorialSeen: true });
+    },
+  });
+
+  screens.show(flow.phase);
+  screens.setBestScore(save.data.bestScore);
+  screens.setMuted(save.data.muted);
+  state.paused = true;
+
+  const onResize = (): void => renderer.resize();
+  window.addEventListener('resize', onResize);
+  window.addEventListener('orientationchange', onResize);
+
+  // Pause when the tab or app goes away, and never try to catch up the lost
+  // time when it comes back (SPEC 11).
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      handleEvent('lostFocus');
+    } else {
+      stepper.reset();
+      lastFrameMs = performance.now();
+    }
+  });
+
+  // Debug keys: 1, 2 and 3 grant the three power-ups, so they can be tried
+  // without waiting for a pickup (SPEC 13).
+  if (debug.enabled) {
+    const debugGrants: Record<string, PowerUpType> = {
+      Digit1: 'shield',
+      Digit2: 'magnet',
+      Digit3: 'boost',
+    };
+    window.addEventListener('keydown', (event) => {
+      const type = debugGrants[event.code];
+      if (type !== undefined) grantPowerUp(state, type);
+    });
+  }
+
+  // Reused every frame rather than rebuilt, like the frame object (rule 7).
+  const powerUpBars: Record<PowerUpType, number> = { shield: 0, magnet: 0, boost: 0 };
+
+  let lastFrameMs = performance.now();
+
+  const tick = (nowMs: number): void => {
+    const frameSeconds = (nowMs - lastFrameMs) / 1000;
+    lastFrameMs = nowMs;
+
+    for (const action of input.drain()) {
+      if (action === 'pause') {
+        handleEvent(flow.phase === 'paused' ? 'resume' : 'pause');
+        continue;
+      }
+      applyAction(state, action);
+    }
+
+    const plan = stepper.advance(frameSeconds);
+    if (isSimulating(flow.phase)) {
+      for (let i = 0; i < plan.ticks; i += 1) stepRun(state);
+    }
+
+    if (state.phase === 'dead' && !wasDead) {
+      feedback.play('death');
+      save.finishRun(displayScore(state.score), state.score.coins);
+    }
+    wasDead = state.phase === 'dead';
+
+    if (state.stumbles > lastStumbles) feedback.play('stumble');
+    lastStumbles = state.stumbles;
+
+    // Death: once the beat has played out, show the score (SPEC 11).
+    if (flow.phase === 'playing' && deathBeatOver(state)) {
+      const score = displayScore(state.score);
+      screens.setGameOver({
+        score,
+        coins: state.score.coins,
+        bestScore: save.data.bestScore,
+        isNewBest: score > 0 && score >= save.data.bestScore,
+      });
+      handleEvent('died');
+    }
+
+    // The tutorial is remembered the moment it is finished (SPEC 10).
+    if (state.tutorial.done && !save.data.tutorialSeen) {
+      save.update({ tutorialSeen: true });
+    }
 
     // Interpolate between the last two ticks so motion is smooth at any fps —
     // but hold still whenever the simulation itself is stopped.
-    const frozen = state.paused || state.phase === 'dead';
-    const alpha = frameAlpha(plan.alpha, frozen);
+    const alpha = frameAlpha(plan.alpha, !isSimulating(flow.phase));
     const { player } = state;
     frame.distance = lerp(state.prevDistance, state.distance, alpha);
     frame.laneOffset = lerp(player.prevLaneOffset, player.laneOffset, alpha);
@@ -187,9 +253,16 @@ function boot(): void {
       coins: state.score.coins,
       multiplier: state.score.multiplier,
       bestScore: save.data.bestScore,
-      status: state.phase === 'dead' ? 'dead' : state.paused ? 'paused' : 'running',
       powerUps: powerUpBars,
+      visible: flow.phase === 'playing',
     });
+
+    // A prompt only shows while a lesson is actually waiting (SPEC 11).
+    const step = state.tutorial.waiting ? currentStep(state.tutorial) : null;
+    screens.setTutorialPrompt(
+      flow.phase === 'playing' && step !== null ? step.id : null,
+      usingKeyboard,
+    );
 
     debug.update(frameSeconds, {
       elapsed: state.elapsed,
@@ -201,7 +274,7 @@ function boot(): void {
       paused: state.paused,
       tier: state.tier,
       stumbles: state.stumbles,
-      phase: state.phase,
+      phase: `${flow.phase}/${state.phase}`,
       chunk: state.spawner.lastChunkId,
       powerUps: POWERUP_TYPES.filter((type) => isActive(state.powerUps, type)).join(' '),
       pickup: state.spawner.pickup.active

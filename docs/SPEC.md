@@ -88,9 +88,12 @@ Collected by touching a floating pickup on the track. A pickup spawns roughly ev
 ## 11. Screens and flow
 1. **Start screen:** title, Play, best score, mute toggle.
 2. **First-run tutorial:** the first run starts with 3 gentle guided prompts (swipe to move, swipe up to jump, swipe down to slide), each waiting for the correct action in front of a matching easy obstacle. Skippable. Never shown again once completed.
+   - "Waiting" means the slide slows to a crawl in front of the obstacle until the right move is made, and nothing can hurt the player until the tutorial is over. A first-time player cannot be killed by the thing they are being taught to get past.
+   - The prompts name keys instead of swipes once the player has touched the keyboard.
 3. **In-game HUD:** score, coin count, multiplier, active power-up timers, pause button. Top of screen, safe-area aware (notches).
 4. **Pause:** Resume, Restart, mute. Game auto-pauses when the tab/app loses focus.
 5. **Game over:** short slow-mo death beat (~0.6 s), then score, coins this run, best score with a "New best!" badge, big Play Again (instant restart, no loading), Home.
+   - During the beat the world keeps moving, far slower, so the crash reads as a moment rather than a freeze. Nothing is scored and nothing else can be hit.
 - No revive/continue in the MVP.
 
 ## 12. Audio

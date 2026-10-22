@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { OBSTACLES, SIM } from '../src/config';
-import { applyAction, createRunState, shouldRestart, stepRun } from '../src/game/state';
+import { DEATH, OBSTACLES, SIM } from '../src/config';
+import { applyAction, createRunState, deathBeatOver, stepRun } from '../src/game/state';
 import type { RunState } from '../src/game/state';
 import { stumbleSpeedFactor } from '../src/game/speed';
 import type { Chunk } from '../src/game/chunks/types';
@@ -184,25 +184,25 @@ describe('death and restart', () => {
     expect(state.paused).toBe(false);
   });
 
-  it('asks for a restart only after the death beat', () => {
+  it('says the death beat is over only once it has played', () => {
     const state = emptyRun();
     placeAhead(state, 'lowMine', 0);
     // Stop the moment it dies, so the beat has not started running down yet.
     while (state.phase === 'running') stepRun(state, DT);
-    expect(shouldRestart(state)).toBe(false);
+    expect(deathBeatOver(state)).toBe(false);
 
-    runFor(state, OBSTACLES.restartDelay - 0.05);
-    expect(shouldRestart(state)).toBe(false);
+    runFor(state, DEATH.beatTime - 0.05);
+    expect(deathBeatOver(state)).toBe(false);
 
     runFor(state, 0.1);
-    expect(shouldRestart(state)).toBe(true);
+    expect(deathBeatOver(state)).toBe(true);
   });
 
-  it('never asks for a restart while alive', () => {
+  it('never says the beat is over while alive', () => {
     const state = emptyRun();
     runFor(state, 5);
     expect(state.phase).toBe('running');
-    expect(shouldRestart(state)).toBe(false);
+    expect(deathBeatOver(state)).toBe(false);
   });
 });
 
