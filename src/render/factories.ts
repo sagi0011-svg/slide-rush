@@ -7,30 +7,133 @@
  */
 
 import {
-  BoxGeometry,
+  AmbientLight,
+  CanvasTexture,
+  CapsuleGeometry,
+  CircleGeometry,
+  DirectionalLight,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   type Object3D,
-  AmbientLight,
-  DirectionalLight,
+  PlaneGeometry,
+  RepeatWrapping,
+  SRGBColorSpace,
 } from 'three';
-import { PALETTE } from '../config';
+import { LANES, PALETTE, PLAYER, TRACK } from '../config';
 
-/** The M0 proof-of-life cube. Replaced by the player capsule in M1. */
-export function createPlaceholderCube(): Mesh<BoxGeometry, MeshStandardMaterial> {
-  const geometry = new BoxGeometry(1.4, 1.4, 1.4);
+/** How many times the geometry of a track segment is cut across its length. */
+export const SEGMENT_DIVISIONS = 12;
+
+/** How long the painted pattern on the slide is before it repeats, in units. */
+const PATTERN_LENGTH = 10;
+
+function colorToCss(hex: number): string {
+  return `#${hex.toString(16).padStart(6, '0')}`;
+}
+
+/**
+ * The painted surface of the slide: lane divider lines plus cross stripes that
+ * make the speed readable. Drawn once into a texture and repeated along the
+ * track, so a whole segment costs a single draw call.
+ */
+export function createSlideTexture(): CanvasTexture {
+  // 64 pixels per unit across the slide, enough to stay crisp on a phone.
+  const pixelsPerUnit = 32;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(TRACK.width * pixelsPerUnit);
+  canvas.height = Math.round(PATTERN_LENGTH * pixelsPerUnit);
+
+  const ctx = canvas.getContext('2d');
+  if (ctx === null) throw new Error('createSlideTexture: no 2D canvas support');
+
+  ctx.fillStyle = colorToCss(PALETTE.slide);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Cross stripes, lighter, every half pattern: these are what you see rushing by.
+  ctx.fillStyle = colorToCss(PALETTE.water);
+  ctx.globalAlpha = 0.35;
+  const stripeHeight = canvas.height * 0.06;
+  ctx.fillRect(0, 0, canvas.width, stripeHeight);
+  ctx.fillRect(0, canvas.height * 0.5, canvas.width, stripeHeight);
+  ctx.globalAlpha = 1;
+
+  // Lane dividers: lines on the two boundaries between the three lanes.
+  ctx.fillStyle = colorToCss(PALETTE.slideEdge);
+  const markerPx = TRACK.markerWidth * pixelsPerUnit;
+  for (const boundary of [-0.5, 0.5]) {
+    const x = canvas.width / 2 + boundary * LANES.width * pixelsPerUnit - markerPx / 2;
+    ctx.globalAlpha = 0.55;
+    ctx.fillRect(x, 0, markerPx, canvas.height);
+  }
+
+  // Solid edges, so the sides of the slide are obvious.
+  ctx.globalAlpha = 0.9;
+  const edgePx = markerPx * 2.5;
+  ctx.fillRect(0, 0, edgePx, canvas.height);
+  ctx.fillRect(canvas.width - edgePx, 0, edgePx, canvas.height);
+  ctx.globalAlpha = 1;
+
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = RepeatWrapping;
+  texture.repeat.set(1, TRACK.segmentLength / PATTERN_LENGTH);
+  texture.anisotropy = 4;
+  return texture;
+}
+
+/**
+ * One recycled piece of slide, lying flat and cut across its length so the
+ * visual bend in curve.ts can be baked into its vertices.
+ */
+export function createTrackSegment(
+  texture: CanvasTexture,
+): Mesh<PlaneGeometry, MeshStandardMaterial> {
+  const geometry = new PlaneGeometry(
+    TRACK.width,
+    TRACK.segmentLength,
+    1,
+    SEGMENT_DIVISIONS,
+  ).rotateX(-Math.PI / 2);
+  const material = new MeshStandardMaterial({
+    map: texture,
+    roughness: 0.6,
+    metalness: 0.05,
+  });
+  const mesh = new Mesh(geometry, material);
+  mesh.matrixAutoUpdate = true;
+  return mesh;
+}
+
+/** The player: a capsule standing on the slide. A real model replaces this later. */
+export function createPlayerMesh(): Mesh<CapsuleGeometry, MeshStandardMaterial> {
+  const bodyLength = PLAYER.standHeight - PLAYER.radius * 2;
+  const geometry = new CapsuleGeometry(PLAYER.radius, bodyLength, 4, 12);
   const material = new MeshStandardMaterial({
     color: PALETTE.player,
-    roughness: 0.45,
+    roughness: 0.4,
     metalness: 0.1,
+  });
+  return new Mesh(geometry, material);
+}
+
+/** A soft blob shadow under the player — cheaper than a real shadow (SPEC 13). */
+export function createBlobShadow(): Mesh<CircleGeometry, MeshBasicMaterial> {
+  const geometry = new CircleGeometry(PLAYER.radius * 1.5, 16).rotateX(-Math.PI / 2);
+  const material = new MeshBasicMaterial({
+    color: 0x000000,
+    transparent: true,
+    opacity: 0.25,
+    depthWrite: false,
   });
   return new Mesh(geometry, material);
 }
 
 /** Simple two-light rig: no shadows, cheap on mobile (SPEC 13). */
 export function createLights(): Object3D[] {
-  const ambient = new AmbientLight(0xffffff, 1.5);
-  const sun = new DirectionalLight(0xffffff, 2.2);
-  sun.position.set(3, 8, 5);
+  const ambient = new AmbientLight(0xffffff, 1.6);
+  const sun = new DirectionalLight(0xffffff, 2);
+  sun.position.set(3, 10, 4);
   return [ambient, sun];
 }

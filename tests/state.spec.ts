@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { SIM, SPEED } from '../src/config';
-import { createRunState, forwardSpeed, PLACEHOLDER_SPIN_RATE, stepRun } from '../src/game/state';
+import { applyAction, createRunState, forwardSpeed, stepRun } from '../src/game/state';
 
 describe('createRunState', () => {
   it('starts a run at zero with the given seed', () => {
     const state = createRunState(321);
     expect(state.elapsed).toBe(0);
     expect(state.ticks).toBe(0);
-    expect(state.spin).toBe(0);
-    expect(state.previousSpin).toBe(0);
+    expect(state.distance).toBe(0);
+    expect(state.speed).toBe(SPEED.start);
+    expect(state.paused).toBe(false);
     expect(state.rng.seed).toBe(321);
+    expect(state.player.vertical).toBe('running');
   });
 });
 
@@ -25,16 +27,30 @@ describe('stepRun', () => {
     const state = createRunState(1);
     for (let i = 0; i < SIM.hz; i += 1) stepRun(state);
     expect(state.elapsed).toBeCloseTo(1, 10);
-    expect(state.spin).toBeCloseTo(PLACEHOLDER_SPIN_RATE, 10);
   });
 
-  it('keeps the previous spin so rendering can interpolate', () => {
+  it('travels at the current speed', () => {
+    const state = createRunState(1);
+    for (let i = 0; i < SIM.hz; i += 1) stepRun(state);
+    // One second at roughly the starting speed.
+    expect(state.distance).toBeGreaterThan(SPEED.start * 0.95);
+    expect(state.distance).toBeLessThan(SPEED.start * 1.1);
+  });
+
+  it('speeds up as the run goes on (SPEC 5)', () => {
+    const state = createRunState(1);
+    for (let i = 0; i < SIM.hz * 60; i += 1) stepRun(state);
+    expect(state.speed).toBeGreaterThan(SPEED.start);
+    expect(state.speed).toBeLessThanOrEqual(SPEED.max);
+  });
+
+  it('keeps the previous distance so rendering can interpolate', () => {
     const state = createRunState(1);
     stepRun(state);
-    const afterFirst = state.spin;
+    const afterFirst = state.distance;
     stepRun(state);
-    expect(state.previousSpin).toBeCloseTo(afterFirst, 10);
-    expect(state.spin).toBeGreaterThan(state.previousSpin);
+    expect(state.prevDistance).toBeCloseTo(afterFirst, 10);
+    expect(state.distance).toBeGreaterThan(state.prevDistance);
   });
 
   it('is identical whether stepped in small or large frames', () => {
@@ -46,7 +62,44 @@ describe('stepRun', () => {
       stepRun(b);
     }
     expect(a.elapsed).toBeCloseTo(b.elapsed, 10);
-    expect(a.spin).toBeCloseTo(b.spin, 10);
+    expect(a.distance).toBeCloseTo(b.distance, 10);
+  });
+
+  it('freezes everything while paused', () => {
+    const state = createRunState(1);
+    for (let i = 0; i < 30; i += 1) stepRun(state);
+    const { elapsed, distance, ticks } = state;
+
+    applyAction(state, 'pause');
+    expect(state.paused).toBe(true);
+    for (let i = 0; i < 60; i += 1) stepRun(state);
+    expect(state.elapsed).toBe(elapsed);
+    expect(state.distance).toBe(distance);
+    expect(state.ticks).toBe(ticks);
+
+    applyAction(state, 'pause');
+    expect(state.paused).toBe(false);
+    stepRun(state);
+    expect(state.elapsed).toBeGreaterThan(elapsed);
+  });
+});
+
+describe('applyAction', () => {
+  it('passes moves on to the player', () => {
+    const state = createRunState(1);
+    applyAction(state, 'jump');
+    expect(state.player.vertical).toBe('jumping');
+    applyAction(state, 'right');
+    expect(state.player.laneTarget).toBe(1);
+  });
+
+  it('drops moves made while paused', () => {
+    const state = createRunState(1);
+    applyAction(state, 'pause');
+    applyAction(state, 'jump');
+    applyAction(state, 'right');
+    expect(state.player.vertical).toBe('running');
+    expect(state.player.laneTarget).toBe(0);
   });
 });
 

@@ -2,7 +2,7 @@
 
 An endless runner set on a water-park slide, in the spirit of Subway Surfers. Slide down, switch between 3 lanes, jump over mines, duck under arches, grab coins and power-ups, and see how far you get.
 
-**Status:** M0 done — project pipeline, tests and auto-deploy are live.
+**Status:** M1 done — you can slide down the track and move, jump and duck with swipes or keys.
 
 **Play it:** https://sagi0011-svg.github.io/slide-rush/
 
@@ -43,6 +43,8 @@ npm run preview          # serve the production build locally
 |---|---|
 | `?debug=1` | Shows fps, simulated time, tick count and the run seed |
 | `?seed=123` | Forces the run seed, so a run can be reproduced exactly |
+
+Debug also reports the current speed, lane and player state (running / jumping / sliding / paused).
 
 ### Deployment
 

@@ -1,14 +1,24 @@
 /**
  * Minimal debug overlay, shown with `?debug=1`.
  *
- * M0 only reports frame rate, simulated time and the run seed. The full
- * overlay from SPEC 13 (hitboxes, sliders, power-up keys) arrives in M8.
+ * It reports frame rate, the run clock, speed and what the player is doing.
+ * The full overlay from SPEC 13 (hitboxes, sliders, power-up keys) arrives in M8.
  */
+
+export interface DebugInfo {
+  elapsed: number;
+  seed: number;
+  ticks: number;
+  speed: number;
+  lane: number;
+  vertical: string;
+  paused: boolean;
+}
 
 export interface DebugOverlay {
   readonly enabled: boolean;
   /** Called once per rendered frame. */
-  update(frameSeconds: number, info: { elapsed: number; seed: number; ticks: number }): void;
+  update(frameSeconds: number, info: DebugInfo): void;
 }
 
 export function isDebugEnabled(search: string = window.location.search): boolean {
@@ -38,6 +48,9 @@ export function createDebugOverlay(element: HTMLElement, enabled: boolean): Debu
       element.textContent = [
         `fps   ${fps.toFixed(0)}`,
         `time  ${info.elapsed.toFixed(1)}s`,
+        `speed ${info.speed.toFixed(1)} u/s`,
+        `lane  ${info.lane}`,
+        `state ${info.paused ? 'paused' : info.vertical}`,
         `ticks ${info.ticks}`,
         `seed  ${info.seed}`,
       ].join('\n');

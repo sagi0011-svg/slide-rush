@@ -1,5 +1,5 @@
 /**
- * Entry point: boot the renderer and run the fixed-timestep loop.
+ * Entry point: boot the renderer, listen for input, run the fixed-timestep loop.
  *
  * The loop runs game logic at a fixed 60 Hz and renders with interpolation,
  * so the game behaves the same at any display refresh rate (CLAUDE.md rule 5).
@@ -8,9 +8,11 @@
 import './ui/styles.css';
 import { SIM } from './config';
 import { createFixedStepper } from './game/loop';
-import { createRunState, stepRun } from './game/state';
+import { applyAction, createRunState, stepRun } from './game/state';
 import { randomSeed } from './game/rng';
-import { createRenderer, type Renderer } from './render/scene';
+import { isSliding } from './game/player';
+import { createInputSource } from './input';
+import { createRenderer, type Frame, type Renderer } from './render/scene';
 import { createDebugOverlay, isDebugEnabled } from './debug/overlay';
 import { STRINGS } from './ui/strings';
 
@@ -46,15 +48,22 @@ function boot(): void {
     return;
   }
 
-  requireElement('hud-right').textContent = STRINGS.m0Badge;
+  const input = createInputSource(canvas);
+
+  const hudLeft = requireElement('hud-left');
+  const hudRight = requireElement('hud-right');
+  hudRight.textContent = STRINGS.m1Badge;
 
   const onResize = (): void => renderer.resize();
   window.addEventListener('resize', onResize);
   window.addEventListener('orientationchange', onResize);
 
-  // Reset the clock when the tab comes back, so we never try to catch up hours.
+  // Pause when the tab or app goes away, and never try to catch up the lost
+  // time when it comes back (SPEC 11).
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
+    if (document.hidden) {
+      state.paused = true;
+    } else {
       stepper.reset();
       lastFrameMs = performance.now();
     }
@@ -62,9 +71,23 @@ function boot(): void {
 
   let lastFrameMs = performance.now();
 
-  const frame = (nowMs: number): void => {
+  // One frame object, reused every frame: no allocations in the hot loop (rule 7).
+  const frame: Frame = {
+    distance: 0,
+    laneOffset: 0,
+    height: 0,
+    sliding: false,
+    bump: 0,
+    frameSeconds: 0,
+  };
+
+  const tick = (nowMs: number): void => {
     const frameSeconds = (nowMs - lastFrameMs) / 1000;
     lastFrameMs = nowMs;
+
+    for (const action of input.drain()) {
+      applyAction(state, action);
+    }
 
     const plan = stepper.advance(frameSeconds);
     for (let i = 0; i < plan.ticks; i += 1) {
@@ -72,18 +95,34 @@ function boot(): void {
     }
 
     // Interpolate between the last two ticks so motion is smooth at any fps.
-    const spin = state.previousSpin + (state.spin - state.previousSpin) * plan.alpha;
-    renderer.draw(spin);
+    const alpha = state.paused ? 1 : plan.alpha;
+    const { player } = state;
+    frame.distance = state.prevDistance + (state.distance - state.prevDistance) * alpha;
+    frame.laneOffset = player.prevLaneOffset + (player.laneOffset - player.prevLaneOffset) * alpha;
+    frame.height = player.prevHeight + (player.height - player.prevHeight) * alpha;
+    frame.sliding = isSliding(player);
+    frame.bump = player.bump;
+    frame.frameSeconds = frameSeconds;
+    renderer.draw(frame);
+
+    hudLeft.textContent = state.paused
+      ? STRINGS.paused
+      : `${Math.floor(state.distance)}${STRINGS.distanceUnit}`;
+
     debug.update(frameSeconds, {
       elapsed: state.elapsed,
       seed: state.rng.seed,
       ticks: state.ticks,
+      speed: state.speed,
+      lane: player.laneTarget,
+      vertical: player.vertical,
+      paused: state.paused,
     });
 
-    window.requestAnimationFrame(frame);
+    window.requestAnimationFrame(tick);
   };
 
-  window.requestAnimationFrame(frame);
+  window.requestAnimationFrame(tick);
 }
 
 boot();

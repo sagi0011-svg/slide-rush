@@ -39,6 +39,14 @@ export const PLAYER = {
   slideTime: 0.7,
   /** How long an input stays queued waiting to become valid, in seconds. */
   inputBufferTime: 0.15,
+  /** Downward speed of the mid-air drop (slide pressed while jumping), in units/second. */
+  fastDropSpeed: 14,
+  /** Seconds for the edge-bump feedback to fade out. */
+  bumpDecayTime: 0.18,
+  /** Placeholder body size, in units. Real hitboxes arrive with the obstacles in M2. */
+  radius: 0.45,
+  standHeight: 1.6,
+  slideHeight: 0.8,
 } as const;
 
 /** Forward speed ramp (SPEC 5). */
@@ -69,6 +77,36 @@ export const TRACK = {
   buildAhead: 150,
   /** How far behind the camera a segment is recycled, in units. */
   recycleBehind: 20,
+  /** Length of one recycled visual segment, in units. */
+  segmentLength: 20,
+  /** Width of the slide floor, in units: three lanes plus a margin. */
+  width: 9,
+  /** Height of the walls along the sides of the slide, in units. */
+  wallHeight: 1.1,
+  /** Width of the painted lane divider lines, in units. */
+  markerWidth: 0.12,
+} as const;
+
+/**
+ * Visual-only bend of the slide (SPEC 2). The same offset is applied to the
+ * track, the player mesh and the camera, so the gameplay lanes stay perfectly
+ * straight along Z and nothing here can affect the rules.
+ */
+export const CURVE = {
+  /**
+   * Sideways sway: how far, in units, and over what wavelength, in units.
+   * Kept gentle on purpose — a sharper sway swings the track out of the narrow
+   * portrait view, which would hide obstacles before the player could react.
+   */
+  lateralAmplitude: 4.5,
+  lateralWavelength: 260,
+  /**
+   * Drop sections: how far the slide descends over one cycle, in units, and how
+   * long that cycle is, in units. The descent is never shared out evenly — it
+   * alternates near-flat stretches with steeper drops.
+   */
+  dropPerWavelength: 13,
+  verticalWavelength: 150,
 } as const;
 
 /** Touch and keyboard input (SPEC 4). */
@@ -87,9 +125,27 @@ export const CAMERA = {
   near: 0.1,
   far: 220,
   /** Camera offset behind and above the player, in units. */
-  offset: { x: 0, y: 4.2, z: 7.5 },
+  offset: { x: 0, y: 4.4, z: 7.2 },
   /** How far down the track the camera looks, in units ahead of the player. */
-  lookAhead: 10,
+  lookAhead: 9,
+  /** Height of that look-at point above the slide, in units. Lower = less sky. */
+  lookHeight: -0.4,
+  /** How much of the player's sideways move the camera copies, 0..1. */
+  lateralFollow: 0.6,
+  /** How much of it the look-at point copies, 0..1. */
+  lookLateralFollow: 0.25,
+  /** How quickly the camera catches up sideways; higher is snappier. */
+  laneDamping: 9,
+  /** How far the camera drops while the player slides, in units. */
+  slideDip: 0.55,
+  /** How far the camera rises at the top of a jump, in units. */
+  jumpRise: 0.8,
+  /** How quickly the camera catches up vertically; higher is snappier. */
+  heightDamping: 6,
+  /** Extra degrees of field of view per unit of downhill slope. */
+  fovKickPerSlope: 32,
+  /** How quickly the field of view eases toward its target. */
+  fovDamping: 3,
 } as const;
 
 /** Scoring (SPEC 8 / 10). */

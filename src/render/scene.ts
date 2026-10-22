@@ -1,28 +1,37 @@
 /**
- * Three.js setup: renderer, scene, camera, resizing.
+ * Three.js setup: renderer, scene, camera, the slide and the player mesh.
  *
- * Reads game state and draws it; it never contains game rules (CLAUDE.md rule 4).
+ * This layer reads game state and draws it; it never contains game rules
+ * (CLAUDE.md rule 4). Everything it needs arrives already interpolated.
  */
 
-import {
-  Color,
-  Fog,
-  PerspectiveCamera,
-  Scene,
-  WebGLRenderer,
-  type BoxGeometry,
-  type Mesh,
-  type MeshStandardMaterial,
-} from 'three';
-import { CAMERA, PALETTE } from '../config';
-import { createLights, createPlaceholderCube } from './factories';
+import { Color, Fog, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
+import { CAMERA, LANES, PALETTE, PLAYER } from '../config';
+import { createBlobShadow, createLights, createPlayerMesh, createSlideTexture } from './factories';
+import { createTrack, type Track } from './track';
+import { createChaseCamera, type ChaseCamera } from './camera';
+import { curveX, curveY } from './curve';
+
+/** Everything the renderer needs to draw one frame, already interpolated. */
+export interface Frame {
+  /** How far the player has travelled, in units. */
+  distance: number;
+  /** Where the player is across the slide, in lane units (-1..1). */
+  laneOffset: number;
+  /** How high the player is above the slide, in units. */
+  height: number;
+  /** True while the player is in the low slide pose. */
+  sliding: boolean;
+  /** Edge-bump feedback, 1 just after a refused lane change, fading to 0. */
+  bump: number;
+  /** Real seconds since the last frame, for camera damping. */
+  frameSeconds: number;
+}
 
 export interface Renderer {
-  /** Draws the current state. `spin` is already interpolated by the caller. */
-  draw(spin: number): void;
+  draw(frame: Frame): void;
   /** Matches the drawing buffer to the canvas' CSS size. Call on resize. */
   resize(): void;
-  /** Frees GPU resources. */
   dispose(): void;
 }
 
@@ -36,18 +45,22 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
 
   const scene = new Scene();
   scene.background = new Color(PALETTE.sky);
-  // Fog hides track segments as they spawn in the distance (SPEC 2).
-  scene.fog = new Fog(PALETTE.fog, CAMERA.far * 0.35, CAMERA.far);
+  // Fog hides track segments as they are recycled into view (SPEC 2).
+  scene.fog = new Fog(PALETTE.fog, CAMERA.far * 0.3, CAMERA.far * 0.85);
 
   const camera = new PerspectiveCamera(CAMERA.fov, CAMERA.aspect, CAMERA.near, CAMERA.far);
-  camera.position.set(CAMERA.offset.x, CAMERA.offset.y, CAMERA.offset.z);
-  camera.lookAt(0, 0.6, -CAMERA.lookAhead);
+  const chase: ChaseCamera = createChaseCamera(camera);
 
   for (const light of createLights()) scene.add(light);
 
-  const cube: Mesh<BoxGeometry, MeshStandardMaterial> = createPlaceholderCube();
-  cube.position.set(0, 0.9, 0);
-  scene.add(cube);
+  const texture = createSlideTexture();
+  const track: Track = createTrack(scene, texture);
+
+  const player = createPlayerMesh();
+  scene.add(player);
+
+  const shadow = createBlobShadow();
+  scene.add(shadow);
 
   const resize = (): void => {
     const width = canvas.clientWidth;
@@ -63,14 +76,50 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   resize();
 
   return {
-    draw(spin: number) {
-      cube.rotation.set(spin * 0.6, spin, spin * 0.25);
+    draw(frame: Frame) {
+      track.update(frame.distance);
+
+      // A refused lane change nudges the player against the wall and back.
+      const bumpOffset = frame.bump * Math.sin(frame.bump * Math.PI) * 0.25;
+      const across = frame.laneOffset * LANES.width;
+      const baseX = curveX(frame.distance) + across;
+      const groundY = curveY(frame.distance);
+
+      // Squash the capsule into the low slide pose (SPEC 3).
+      const squash = frame.sliding ? PLAYER.slideHeight / PLAYER.standHeight : 1;
+      player.scale.set(1, squash, 1);
+      player.position.set(
+        baseX + bumpOffset * Math.sign(across === 0 ? 1 : across),
+        groundY + frame.height + (PLAYER.standHeight / 2) * squash,
+        0,
+      );
+      player.rotation.z = -frame.bump * 0.25 * Math.sign(across === 0 ? 1 : across);
+
+      // The blob shadow stays on the slide and shrinks as the player rises.
+      const lift = Math.min(frame.height / PLAYER.jumpHeight, 1);
+      shadow.position.set(baseX, groundY + 0.02, 0);
+      shadow.scale.setScalar(1 - lift * 0.45);
+      shadow.material.opacity = 0.25 * (1 - lift * 0.6);
+
+      chase.update(
+        frame.distance,
+        frame.laneOffset,
+        frame.height,
+        frame.sliding,
+        frame.frameSeconds,
+      );
+
       renderer.render(scene, camera);
     },
     resize,
     dispose() {
-      cube.geometry.dispose();
-      cube.material.dispose();
+      track.dispose();
+      scene.remove(player, shadow);
+      player.geometry.dispose();
+      player.material.dispose();
+      shadow.geometry.dispose();
+      shadow.material.dispose();
+      texture.dispose();
       renderer.dispose();
     },
   };

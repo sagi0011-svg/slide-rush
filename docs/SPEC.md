@@ -12,6 +12,7 @@ Source of truth for rules and numbers. All numbers are starting values and live 
 - 3D, third-person chase camera behind and above the player, looking down the slide.
 - Camera follows lane changes smoothly (damped), dips slightly on slide, rises slightly on jump. Small FOV kick during Speed Boost.
 - The slide is built from recycled straight track segments. **Curves and drops are visual only**: gameplay lanes are always straight along the Z axis; the visual bend is applied in the render layer (e.g. a curve offset on the world/camera). Occasional visual "drop" sections give a brief speed-feel boost (camera + FOV), with no gameplay effect.
+- The visual slide only ever descends — it never climbs back up, and the sideways sway stays gentle enough to keep the track ahead inside the portrait view. Both rules exist so the slide can never hide what is coming.
 - Fog/far plane hides segment spawning. Track is pre-built ~150 units ahead and recycled behind the camera.
 
 ## 3. Lanes and player movement
@@ -19,10 +20,11 @@ Source of truth for rules and numbers. All numbers are starting values and live 
 - **Lane change:** 0.15 s eased move. A new lane input during a move retargets immediately (fast double-swipe works). Swiping past the edge does nothing (small bump feedback).
 - **Jump:** 0.65 s airtime, apex height 2.2 units. Clears low obstacles. Can change lanes mid-air.
 - **Slide (duck):** 0.7 s low hitbox. Clears high obstacles. Swiping down mid-air cancels the jump into a fast drop, then slides on landing.
-- **Input buffering:** one action queued for up to 0.15 s (e.g. jump pressed just before landing triggers on landing).
+- **Input buffering:** one action queued for up to 0.15 s (e.g. jump pressed just before landing triggers on landing). A newer buffered action replaces an older one.
+- **Jump while sliding** cancels the slide and jumps immediately. **Slide while already sliding** is buffered, so it extends the slide rather than restarting it. Lane changes are never buffered: they apply at once in any state, or are dropped at the edge.
 
 ## 4. Controls
-- Touch: swipe left/right/up/down. A swipe is recognised as soon as the finger moves past **30 px** (do not wait for touch end). Direction = dominant axis. One action per touch.
+- Touch: swipe left/right/up/down. A swipe is recognised as soon as the finger moves past **30 px** (do not wait for touch end; exactly 30 px counts). Direction = dominant axis; a perfectly diagonal swipe counts as a lane change. One action per touch.
 - Keyboard: ←/→ or A/D, ↑/W/Space = jump, ↓/S = slide, Esc/P = pause.
 - Prevent page scroll, zoom and pull-to-refresh on the game canvas.
 
