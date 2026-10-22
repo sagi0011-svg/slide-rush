@@ -13,6 +13,7 @@ import { randomSeed } from './game/rng';
 import { isSliding } from './game/player';
 import { createInputSource } from './input';
 import { createRenderer, type Frame, type Renderer } from './render/scene';
+import { frameAlpha, lerp } from './render/interpolate';
 import { createDebugOverlay, isDebugEnabled } from './debug/overlay';
 import { createFeedback } from './ui/feedback';
 import { STRINGS } from './ui/strings';
@@ -122,12 +123,14 @@ function boot(): void {
       stepper.reset();
     }
 
-    // Interpolate between the last two ticks so motion is smooth at any fps.
-    const alpha = state.paused ? 1 : plan.alpha;
+    // Interpolate between the last two ticks so motion is smooth at any fps —
+    // but hold still whenever the simulation itself is stopped.
+    const frozen = state.paused || state.phase === 'dead';
+    const alpha = frameAlpha(plan.alpha, frozen);
     const { player } = state;
-    frame.distance = state.prevDistance + (state.distance - state.prevDistance) * alpha;
-    frame.laneOffset = player.prevLaneOffset + (player.laneOffset - player.prevLaneOffset) * alpha;
-    frame.height = player.prevHeight + (player.height - player.prevHeight) * alpha;
+    frame.distance = lerp(state.prevDistance, state.distance, alpha);
+    frame.laneOffset = lerp(player.prevLaneOffset, player.laneOffset, alpha);
+    frame.height = lerp(player.prevHeight, player.height, alpha);
     frame.sliding = isSliding(player);
     frame.bump = player.bump;
     frame.shakeTrigger = state.shakeTrigger;
