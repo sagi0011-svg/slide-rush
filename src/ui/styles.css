@@ -112,7 +112,8 @@ body {
 #debug {
   position: absolute;
   left: 14px;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  /* Below the HUD, out of the way of the player at the bottom of the frame. */
+  top: calc(env(safe-area-inset-top, 0px) + 40px);
   display: none;
   font:
     12px / 1.45 ui-monospace,

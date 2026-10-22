@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { SIM, SPEED } from '../src/config';
 import { applyAction, createRunState, forwardSpeed, stepRun } from '../src/game/state';
+import type { Chunk } from '../src/game/chunks/types';
+
+/**
+ * These tests are about the run itself — its clock, distance, speed and pause —
+ * so they use a track with nothing on it. Obstacles get their own specs.
+ */
+const EMPTY_LIBRARY: Chunk[] = [
+  { id: 'empty', minTier: 0, maxTier: 3, length: 40, placements: [] },
+];
+
+const newRun = (seed: number) => createRunState(seed, EMPTY_LIBRARY);
 
 describe('createRunState', () => {
   it('starts a run at zero with the given seed', () => {
-    const state = createRunState(321);
+    const state = newRun(321);
     expect(state.elapsed).toBe(0);
     expect(state.ticks).toBe(0);
     expect(state.distance).toBe(0);
@@ -17,20 +28,20 @@ describe('createRunState', () => {
 
 describe('stepRun', () => {
   it('advances the clock by one fixed tick', () => {
-    const state = createRunState(1);
+    const state = newRun(1);
     stepRun(state);
     expect(state.ticks).toBe(1);
     expect(state.elapsed).toBeCloseTo(SIM.dt, 10);
   });
 
   it('reaches one second after exactly 60 ticks', () => {
-    const state = createRunState(1);
+    const state = newRun(1);
     for (let i = 0; i < SIM.hz; i += 1) stepRun(state);
     expect(state.elapsed).toBeCloseTo(1, 10);
   });
 
   it('travels at the current speed', () => {
-    const state = createRunState(1);
+    const state = newRun(1);
     for (let i = 0; i < SIM.hz; i += 1) stepRun(state);
     // One second at roughly the starting speed.
     expect(state.distance).toBeGreaterThan(SPEED.start * 0.95);
@@ -38,14 +49,14 @@ describe('stepRun', () => {
   });
 
   it('speeds up as the run goes on (SPEC 5)', () => {
-    const state = createRunState(1);
+    const state = newRun(1);
     for (let i = 0; i < SIM.hz * 60; i += 1) stepRun(state);
     expect(state.speed).toBeGreaterThan(SPEED.start);
     expect(state.speed).toBeLessThanOrEqual(SPEED.max);
   });
 
   it('keeps the previous distance so rendering can interpolate', () => {
-    const state = createRunState(1);
+    const state = newRun(1);
     stepRun(state);
     const afterFirst = state.distance;
     stepRun(state);
@@ -54,8 +65,8 @@ describe('stepRun', () => {
   });
 
   it('is identical whether stepped in small or large frames', () => {
-    const a = createRunState(5);
-    const b = createRunState(5);
+    const a = newRun(5);
+    const b = newRun(5);
     for (let i = 0; i < 180; i += 1) stepRun(a);
     for (let i = 0; i < 90; i += 1) {
       stepRun(b);
@@ -66,7 +77,7 @@ describe('stepRun', () => {
   });
 
   it('freezes everything while paused', () => {
-    const state = createRunState(1);
+    const state = newRun(1);
     for (let i = 0; i < 30; i += 1) stepRun(state);
     const { elapsed, distance, ticks } = state;
 
@@ -86,7 +97,7 @@ describe('stepRun', () => {
 
 describe('applyAction', () => {
   it('passes moves on to the player', () => {
-    const state = createRunState(1);
+    const state = newRun(1);
     applyAction(state, 'jump');
     expect(state.player.vertical).toBe('jumping');
     applyAction(state, 'right');
@@ -94,7 +105,7 @@ describe('applyAction', () => {
   });
 
   it('drops moves made while paused', () => {
-    const state = createRunState(1);
+    const state = newRun(1);
     applyAction(state, 'pause');
     applyAction(state, 'jump');
     applyAction(state, 'right');

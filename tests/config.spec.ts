@@ -105,3 +105,14 @@ describe('config matches the spec', () => {
     expect(POWERUPS.boost.safeWindowAfterEnd).toBe(1.5);
   });
 });
+
+describe('render settings that affect fairness', () => {
+  it('fogs the track out before its built end shows (SPEC 2)', () => {
+    expect(CAMERA.fogFar).toBeLessThan(TRACK.buildAhead);
+    expect(CAMERA.fogNear).toBeLessThan(CAMERA.fogFar);
+  });
+
+  it('builds the track further ahead than the camera can see', () => {
+    expect(TRACK.buildAhead).toBeGreaterThan(CAMERA.fogFar);
+  });
+});

@@ -8,7 +8,7 @@
 import './ui/styles.css';
 import { SIM } from './config';
 import { createFixedStepper } from './game/loop';
-import { applyAction, createRunState, stepRun } from './game/state';
+import { applyAction, createRunState, shouldRestart, stepRun } from './game/state';
 import { randomSeed } from './game/rng';
 import { isSliding } from './game/player';
 import { createInputSource } from './input';
@@ -35,7 +35,9 @@ function boot(): void {
   const parsedSeed = seedParam === null ? Number.NaN : Number(seedParam);
   const seed = Number.isFinite(parsedSeed) ? parsedSeed : randomSeed();
 
-  const state = createRunState(seed);
+  // `let` because death starts a whole new run (temporary until M6 adds a
+  // proper game-over screen).
+  let state = createRunState(seed);
   const stepper = createFixedStepper(SIM.dt, SIM.maxTicksPerFrame);
   const debug = createDebugOverlay(requireElement('debug'), isDebugEnabled());
 
@@ -52,7 +54,7 @@ function boot(): void {
 
   const hudLeft = requireElement('hud-left');
   const hudRight = requireElement('hud-right');
-  hudRight.textContent = STRINGS.m1Badge;
+  hudRight.textContent = STRINGS.m2Badge;
 
   const onResize = (): void => renderer.resize();
   window.addEventListener('resize', onResize);
@@ -78,6 +80,9 @@ function boot(): void {
     height: 0,
     sliding: false,
     bump: 0,
+    obstacles: state.spawner.obstacles,
+    shakeTrigger: 0,
+    dead: false,
     frameSeconds: 0,
   };
 
@@ -94,6 +99,14 @@ function boot(): void {
       stepRun(state);
     }
 
+    // Death restarts the run after a short beat. M6 replaces this with a
+    // proper game-over screen.
+    if (shouldRestart(state)) {
+      state = createRunState(seedParam === null ? randomSeed() : seed);
+      frame.obstacles = state.spawner.obstacles;
+      stepper.reset();
+    }
+
     // Interpolate between the last two ticks so motion is smooth at any fps.
     const alpha = state.paused ? 1 : plan.alpha;
     const { player } = state;
@@ -102,12 +115,18 @@ function boot(): void {
     frame.height = player.prevHeight + (player.height - player.prevHeight) * alpha;
     frame.sliding = isSliding(player);
     frame.bump = player.bump;
+    frame.shakeTrigger = state.shakeTrigger;
+    frame.dead = state.phase === 'dead';
     frame.frameSeconds = frameSeconds;
     renderer.draw(frame);
 
-    hudLeft.textContent = state.paused
-      ? STRINGS.paused
-      : `${Math.floor(state.distance)}${STRINGS.distanceUnit}`;
+    if (state.phase === 'dead') {
+      hudLeft.textContent = STRINGS.crashed;
+    } else if (state.paused) {
+      hudLeft.textContent = STRINGS.paused;
+    } else {
+      hudLeft.textContent = `${Math.floor(state.distance)}${STRINGS.distanceUnit}`;
+    }
 
     debug.update(frameSeconds, {
       elapsed: state.elapsed,
@@ -117,6 +136,10 @@ function boot(): void {
       lane: player.laneTarget,
       vertical: player.vertical,
       paused: state.paused,
+      tier: state.tier,
+      stumbles: state.stumbles,
+      phase: state.phase,
+      chunk: state.spawner.lastChunkId,
     });
 
     window.requestAnimationFrame(tick);

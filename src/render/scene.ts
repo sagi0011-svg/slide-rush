@@ -9,6 +9,7 @@ import { Color, Fog, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
 import { CAMERA, LANES, PALETTE, PLAYER } from '../config';
 import { createBlobShadow, createLights, createPlayerMesh, createSlideTexture } from './factories';
 import { createTrack, type Track } from './track';
+import { createObstacleLayer, type ObstacleLayer, type ObstacleView } from './obstacle-view';
 import { createChaseCamera, type ChaseCamera } from './camera';
 import { curveX, curveY } from './curve';
 
@@ -24,6 +25,12 @@ export interface Frame {
   sliding: boolean;
   /** Edge-bump feedback, 1 just after a refused lane change, fading to 0. */
   bump: number;
+  /** The obstacles on the track. */
+  obstacles: readonly ObstacleView[];
+  /** Counts up on every stumble; a change sets the camera shaking. */
+  shakeTrigger: number;
+  /** True once the run has ended, for the death beat. */
+  dead: boolean;
   /** Real seconds since the last frame, for camera damping. */
   frameSeconds: number;
 }
@@ -46,7 +53,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   const scene = new Scene();
   scene.background = new Color(PALETTE.sky);
   // Fog hides track segments as they are recycled into view (SPEC 2).
-  scene.fog = new Fog(PALETTE.fog, CAMERA.far * 0.3, CAMERA.far * 0.85);
+  scene.fog = new Fog(PALETTE.fog, CAMERA.fogNear, CAMERA.fogFar);
 
   const camera = new PerspectiveCamera(CAMERA.fov, CAMERA.aspect, CAMERA.near, CAMERA.far);
   const chase: ChaseCamera = createChaseCamera(camera);
@@ -55,6 +62,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
 
   const texture = createSlideTexture();
   const track: Track = createTrack(scene, texture);
+  const obstacleLayer: ObstacleLayer = createObstacleLayer(scene);
 
   const player = createPlayerMesh();
   scene.add(player);
@@ -75,9 +83,21 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
 
   resize();
 
+  // Camera shake, kept across frames (SPEC 7).
+  let shake = 0;
+  let lastShakeTrigger = 0;
+
   return {
     draw(frame: Frame) {
       track.update(frame.distance);
+      obstacleLayer.update(frame.obstacles, frame.distance);
+
+      // A stumble shakes the camera for a moment (SPEC 7).
+      if (frame.shakeTrigger !== lastShakeTrigger) {
+        lastShakeTrigger = frame.shakeTrigger;
+        shake = CAMERA.shakeTime;
+      }
+      if (shake > 0) shake = Math.max(0, shake - frame.frameSeconds);
 
       // A refused lane change nudges the player against the wall and back.
       const bumpOffset = frame.bump * Math.sin(frame.bump * Math.PI) * 0.25;
@@ -109,11 +129,20 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
         frame.frameSeconds,
       );
 
+      if (shake > 0) {
+        // A quick decaying wobble, not a drift: it always returns to centre.
+        const strength = (shake / CAMERA.shakeTime) * CAMERA.shakeAmount;
+        const t = shake * 90;
+        camera.position.x += Math.sin(t) * strength;
+        camera.position.y += Math.cos(t * 1.7) * strength * 0.6;
+      }
+
       renderer.render(scene, camera);
     },
     resize,
     dispose() {
       track.dispose();
+      obstacleLayer.dispose();
       scene.remove(player, shadow);
       player.geometry.dispose();
       player.material.dispose();

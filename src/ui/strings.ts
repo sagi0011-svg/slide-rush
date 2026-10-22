@@ -7,8 +7,9 @@ export const STRINGS = {
   title: 'Slide Rush',
   loading: 'Loading…',
   webglUnsupported: 'This browser cannot run 3D graphics (WebGL). Try Chrome, Safari or Firefox.',
-  m1Badge: 'M1 — slide & controls',
+  m2Badge: 'M2 — obstacles',
   paused: 'Paused',
+  crashed: 'Crashed!',
   distanceUnit: ' m',
 } as const;
 

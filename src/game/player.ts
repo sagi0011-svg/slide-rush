@@ -223,3 +223,15 @@ export function stepPlayer(player: PlayerState, dt: number): void {
     player.bump = Math.max(0, player.bump - dt / PLAYER.bumpDecayTime);
   }
 }
+
+/**
+ * Bounces the player back to the lane they came from, after sliding into the
+ * side of an obstacle (SPEC 7).
+ */
+export function bouncePlayer(player: PlayerState): void {
+  const from = clampLane(Math.round(player.laneFrom));
+  player.laneFrom = player.laneOffset;
+  player.laneTarget = from;
+  player.laneT = 0;
+  player.bump = 1;
+}

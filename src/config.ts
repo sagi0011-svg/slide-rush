@@ -85,6 +85,15 @@ export const TRACK = {
   wallHeight: 1.1,
   /** Width of the painted lane divider lines, in units. */
   markerWidth: 0.12,
+  /**
+   * Empty "breather" gap after a chunk, in units, one entry per difficulty
+   * tier (SPEC 6). Lower tiers get more room to think.
+   */
+  breatherByTier: [22, 14, 7, 0],
+  /** How far behind the player an obstacle is forgotten, in units. */
+  despawnBehind: 12,
+  /** How many obstacles can be alive at once; the pool never grows (rule 7). */
+  obstaclePoolSize: 96,
 } as const;
 
 /**
@@ -146,6 +155,16 @@ export const CAMERA = {
   fovKickPerSlope: 32,
   /** How quickly the field of view eases toward its target. */
   fovDamping: 3,
+  /** How far the camera shakes after a stumble, in units, and for how long. */
+  shakeAmount: 0.35,
+  shakeTime: 0.4,
+  /**
+   * Where the fog starts and finishes, in units ahead of the player. `fogFar`
+   * must stay below TRACK.buildAhead, or the end of the built track shows as a
+   * hard edge against the sky (SPEC 2).
+   */
+  fogNear: 45,
+  fogFar: 140,
 } as const;
 
 /** Scoring (SPEC 8 / 10). */
@@ -172,6 +191,27 @@ export const OBSTACLES = {
   stumbleDuration: 1.5,
   /** A second stumble inside this window, in seconds, is death. */
   secondStumbleWindow: 6,
+  /** Seconds the death beat lasts before the run restarts (temporary until M6). */
+  restartDelay: 0.6,
+  /**
+   * Visual size of each obstacle, in units: `w` across the slide, `h` tall,
+   * `d` along the slide, and `y` for how high off the floor the box starts.
+   * Hitboxes are these shrunk by `hitboxScale` (SPEC 7).
+   */
+  size: {
+    /** Red spiky sphere, low: jump over it or change lane. */
+    lowMine: { w: 1.7, h: 1.0, d: 1.7, y: 0 },
+    /**
+     * Blue arch across one lane: slide under it or change lane. It hangs low
+     * enough to clearly catch someone standing, and high enough to leave real
+     * room for a slide.
+     */
+    highObstacle: { w: 2.4, h: 2.3, d: 0.9, y: 0.95 },
+    /** Grey wall filling the lane: only a lane change gets past it. */
+    fullBlocker: { w: 2.3, h: 3.2, d: 1.1, y: 0 },
+    /** Yellow ring, low: jump over it or change lane. Only ever a stumble. */
+    softObstacle: { w: 1.9, h: 0.8, d: 1.9, y: 0 },
+  },
 } as const;
 
 /** Coins (SPEC 8). */

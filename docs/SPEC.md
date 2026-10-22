@@ -42,6 +42,7 @@ Source of truth for rules and numbers. All numbers are starting values and live 
 - Each chunk has: id, tier range, length, list of placements `{type, lane, z}`.
 - The spawner picks chunks at random (seeded) from the pool allowed by the current tier, avoiding the same chunk twice in a row. Short empty "breather" gaps between chunks at lower tiers.
 - **Fairness rule (enforced by a test):** every chunk, and every pair of consecutive chunks, has at least one survivable path given lane-change time, jump/slide durations and the max speed of its tiers. A validator test checks all chunks.
+- The validator searches the real player simulation, and is deliberately stricter than the rule above: the path it finds must take **no hits at all** (not even a stumble), must work from **every lane the player could arrive in**, and may only act on a coarse time grid. A chunk that passes is therefore comfortably fair.
 - Coin trails in chunks guide the player along the good path (lines, arcs over jumps).
 - MVP target: at least 25 chunks across tiers.
 
@@ -54,6 +55,7 @@ Source of truth for rules and numbers. All numbers are starting values and live 
 | **Soft obstacle** (inflatable ring / duck) | yellow torus, low | Jump over, or change lane | **Stumble** |
 
 - **Side hit:** switching lanes into the side of any obstacle = stumble + bounce back to the original lane (not death).
+- An obstacle that causes a stumble is removed on impact, so a single obstacle can never trip the player twice.
 - **Stumble:** speed drops by 30% for 1.5 s (eases back), score multiplier resets to x1, camera shake. A **second stumble within 6 s = death**.
 - Collisions use simple axis-aligned boxes per obstacle and a player box that shrinks when sliding and rises when jumping. Hitboxes are slightly forgiving (about 15% smaller than visuals).
 

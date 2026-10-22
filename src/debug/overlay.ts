@@ -13,6 +13,10 @@ export interface DebugInfo {
   lane: number;
   vertical: string;
   paused: boolean;
+  tier: number;
+  stumbles: number;
+  phase: string;
+  chunk: string | null;
 }
 
 export interface DebugOverlay {
@@ -50,7 +54,10 @@ export function createDebugOverlay(element: HTMLElement, enabled: boolean): Debu
         `time  ${info.elapsed.toFixed(1)}s`,
         `speed ${info.speed.toFixed(1)} u/s`,
         `lane  ${info.lane}`,
-        `state ${info.paused ? 'paused' : info.vertical}`,
+        `state ${info.phase === 'dead' ? 'dead' : info.paused ? 'paused' : info.vertical}`,
+        `tier  ${info.tier}`,
+        `trips ${info.stumbles}`,
+        `chunk ${info.chunk ?? '-'}`,
         `ticks ${info.ticks}`,
         `seed  ${info.seed}`,
       ].join('\n');

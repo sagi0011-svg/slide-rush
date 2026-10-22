@@ -8,10 +8,12 @@
 
 import {
   AmbientLight,
+  BoxGeometry,
   CanvasTexture,
   CapsuleGeometry,
   CircleGeometry,
   DirectionalLight,
+  IcosahedronGeometry,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -19,8 +21,10 @@ import {
   PlaneGeometry,
   RepeatWrapping,
   SRGBColorSpace,
+  TorusGeometry,
 } from 'three';
-import { LANES, PALETTE, PLAYER, TRACK } from '../config';
+import { LANES, OBSTACLES, PALETTE, PLAYER, TRACK } from '../config';
+import type { ObstacleType } from '../game/obstacles';
 
 /** How many times the geometry of a track segment is cut across its length. */
 export const SEGMENT_DIVISIONS = 12;
@@ -136,4 +140,45 @@ export function createLights(): Object3D[] {
   const sun = new DirectionalLight(0xffffff, 2);
   sun.position.set(3, 10, 4);
   return [ambient, sun];
+}
+
+/** One placeholder mesh per obstacle type (SPEC 7). */
+export function createObstacleMesh(type: ObstacleType): Mesh {
+  const size = OBSTACLES.size[type];
+  switch (type) {
+    case 'lowMine': {
+      // Red spiky ball sitting low on the slide.
+      const geometry = new IcosahedronGeometry(size.w / 2, 0);
+      const material = new MeshStandardMaterial({
+        color: PALETTE.lowMine,
+        roughness: 0.5,
+        flatShading: true,
+      });
+      return new Mesh(geometry, material);
+    }
+    case 'highObstacle': {
+      // Blue arch spanning the lane, with a gap underneath to slide through.
+      const geometry = new BoxGeometry(size.w, size.h, size.d);
+      const material = new MeshStandardMaterial({ color: PALETTE.highObstacle, roughness: 0.4 });
+      return new Mesh(geometry, material);
+    }
+    case 'fullBlocker': {
+      // Grey wall filling the lane from the floor up.
+      const geometry = new BoxGeometry(size.w, size.h, size.d);
+      const material = new MeshStandardMaterial({ color: PALETTE.fullBlocker, roughness: 0.75 });
+      return new Mesh(geometry, material);
+    }
+    case 'softObstacle': {
+      // Yellow inflatable ring lying flat.
+      const geometry = new TorusGeometry(size.w / 2.6, size.h / 2, 8, 16).rotateX(-Math.PI / 2);
+      const material = new MeshStandardMaterial({ color: PALETTE.softObstacle, roughness: 0.6 });
+      return new Mesh(geometry, material);
+    }
+  }
+}
+
+/** Where the middle of an obstacle's mesh sits above the slide, in units. */
+export function obstacleMeshHeight(type: ObstacleType): number {
+  const size = OBSTACLES.size[type];
+  return size.y + size.h / 2;
 }
