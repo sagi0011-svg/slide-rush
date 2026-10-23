@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AUDIO,
   CAMERA,
   COINS,
   DIFFICULTY,
@@ -114,5 +115,44 @@ describe('render settings that affect fairness', () => {
 
   it('builds the track further ahead than the camera can see', () => {
     expect(TRACK.buildAhead).toBeGreaterThan(CAMERA.fogFar);
+  });
+});
+
+describe('sound settings (SPEC 12)', () => {
+  it('keeps every volume inside 0..1, with the music under the effects', () => {
+    for (const gain of [AUDIO.masterGain, AUDIO.sfxGain, AUDIO.musicGain, AUDIO.ambienceGain]) {
+      expect(gain).toBeGreaterThan(0);
+      expect(gain).toBeLessThanOrEqual(1);
+    }
+    expect(AUDIO.musicGain).toBeLessThan(AUDIO.sfxGain);
+    expect(AUDIO.ambienceGain).toBeLessThan(AUDIO.sfxGain);
+    expect(AUDIO.menuMusicLevel).toBeGreaterThan(0);
+    expect(AUDIO.menuMusicLevel).toBeLessThan(1);
+  });
+
+  it('describes all ten effects, each audible and inside the range', () => {
+    const names = Object.keys(AUDIO.sfx);
+    expect(names).toHaveLength(10);
+    for (const [name, recipe] of Object.entries(AUDIO.sfx)) {
+      expect(recipe.duration, name).toBeGreaterThan(0);
+      expect(recipe.gain, name).toBeGreaterThan(0);
+      expect(recipe.gain, name).toBeLessThanOrEqual(1);
+      expect(AUDIO.minGap[name as keyof typeof AUDIO.minGap], name).toBeGreaterThan(0);
+    }
+  });
+
+  it('gives the music four chords of three notes over a sensible tempo', () => {
+    expect(AUDIO.music.chords).toHaveLength(4);
+    for (const chord of AUDIO.music.chords) expect(chord).toHaveLength(3);
+    expect(AUDIO.music.bpm).toBeGreaterThan(60);
+    expect(AUDIO.music.bpm).toBeLessThan(180);
+    expect(AUDIO.music.tailSilence).toBeGreaterThan(0);
+  });
+
+  it('crossfades the water loop into itself over part of its length', () => {
+    expect(AUDIO.water.crossfade).toBeGreaterThan(0);
+    expect(AUDIO.water.crossfade).toBeLessThan(AUDIO.water.loopSeconds);
+    expect(AUDIO.water.swellDepth).toBeGreaterThan(0);
+    expect(AUDIO.water.swellDepth).toBeLessThanOrEqual(1);
   });
 });

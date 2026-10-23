@@ -287,6 +287,127 @@ export const FEEDBACK = {
   flashTime: 0.35,
 } as const;
 
+/**
+ * Sound (SPEC 12).
+ *
+ * Every effect and both loops are built out of these numbers while the game
+ * runs — nothing is downloaded and no recording is anyone else's work, so the
+ * whole soundtrack is ours to give away (see ASSETS.md). Gains are 0..1,
+ * times are in seconds and frequencies in hertz.
+ */
+export const AUDIO = {
+  /** Everything together, once the mute button has had its say. */
+  masterGain: 0.85,
+  /** The effects bus, relative to master. */
+  sfxGain: 0.8,
+  /** The music loop. It sits well under the effects on purpose. */
+  musicGain: 0.26,
+  /** The water ambience loop. */
+  ambienceGain: 0.2,
+  /** How far the music is turned down while a screen is up, 0..1. */
+  menuMusicLevel: 0.55,
+  /** Seconds a loop takes to fade in or out. */
+  bedFadeTime: 0.9,
+  /** Seconds the master volume takes to follow the mute button. */
+  muteFadeTime: 0.15,
+  /**
+   * Sample rate every sound is built at, whatever the device runs at; the
+   * browser converts on playback. Nothing in these sounds goes much above
+   * 6 kHz, so 24 kHz loses nothing you can hear and halves the work done on
+   * the first tap, which is also the moment a run starts.
+   */
+  renderSampleRate: 24000,
+  /**
+   * Seconds after the page loads before the sounds start being built in the
+   * background, so the title screen is drawn first.
+   */
+  prepareDelay: 0.3,
+  /** Seed for every bit of noise, so the same build always sounds the same. */
+  noiseSeed: 20261023,
+  /** Shortest gap between two plays of the same effect, in seconds. */
+  minGap: {
+    coin: 0.035,
+    jump: 0.09,
+    slide: 0.09,
+    lane: 0.07,
+    stumble: 0.12,
+    death: 0.5,
+    powerUp: 0.12,
+    powerUpEnd: 0.12,
+    shieldPop: 0.12,
+    uiTap: 0.06,
+  },
+  /**
+   * At most this many coin sounds out of a single frame, however many coins a
+   * magnet swept up at once.
+   */
+  maxCoinsPerFrame: 2,
+  coin: {
+    /** Coins collected within this many seconds of each other climb in pitch. */
+    streakWindow: 0.7,
+    /** Pitch multiplier per coin in the climb (about one semitone). */
+    pitchStep: 1.06,
+    /** How many steps the climb reaches before it stops rising. */
+    maxSteps: 8,
+  },
+  /**
+   * The ten placeholder effects (SPEC 12). `gain` is the peak of the rendered
+   * sound, `from`/`to` are the ends of a sweep, `notes` are fixed pitches.
+   */
+  sfx: {
+    coin: { duration: 0.16, gain: 0.45, from: 1174.66, to: 1760 },
+    jump: { duration: 0.22, gain: 0.5, from: 220, to: 740 },
+    slide: { duration: 0.3, gain: 0.5, from: 1600, to: 320 },
+    lane: { duration: 0.16, gain: 0.38, from: 600, to: 2000 },
+    stumble: { duration: 0.32, gain: 0.7, from: 200, to: 70 },
+    death: { duration: 0.9, gain: 0.8, from: 330, to: 65 },
+    powerUp: { duration: 0.36, gain: 0.55, notes: [523.25, 659.25, 783.99, 1046.5] },
+    powerUpEnd: { duration: 0.28, gain: 0.42, notes: [783.99, 523.25] },
+    shieldPop: { duration: 0.28, gain: 0.6, from: 2600, to: 700 },
+    uiTap: { duration: 0.09, gain: 0.38, from: 820, to: 620 },
+  },
+  /** The looping background track: four chords, bass, and an arpeggio over them. */
+  music: {
+    bpm: 104,
+    /** Beats each chord is held for. */
+    beatsPerChord: 4,
+    /** MIDI note the progression is built on (C3). */
+    rootMidi: 48,
+    /** Semitones above the root for the three notes of each chord. */
+    chords: [
+      [0, 4, 7],
+      [7, 11, 14],
+      [9, 12, 16],
+      [5, 9, 12],
+    ],
+    /** Which chord note each eighth of a beat-pair plays. */
+    arpPattern: [0, 1, 2, 1],
+    /** Levels of the three parts, before musicGain. */
+    padGain: 0.5,
+    bassGain: 0.6,
+    arpGain: 0.3,
+    /** Seconds of quiet kept at the end so the join back to the start is clean. */
+    tailSilence: 0.2,
+    /** Peak the finished loop is normalised to. */
+    peak: 0.9,
+  },
+  /** The water ambience loop: filtered noise with slow swells. */
+  water: {
+    loopSeconds: 6,
+    /** Low-pass cutoff: how dark the rushing water is. */
+    cutoff: 900,
+    /** How much unfiltered hiss is mixed back in for air, 0..1. */
+    air: 0.22,
+    /** Seconds of the tail crossfaded onto the head to hide the join. */
+    crossfade: 0.6,
+    /** Slow swells: roughly this many per second, and how deep they go, 0..1. */
+    swellRate: 0.12,
+    swellDepth: 0.4,
+    /** Peak the finished loop is normalised to. */
+    peak: 0.8,
+  },
+} as const;
+
 /** The first-run tutorial (SPEC 11). */
 export const TUTORIAL = {
   /** How far ahead of the obstacle the slide starts holding, in units. */
