@@ -7,6 +7,7 @@
 
 import { Color, Fog, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
 import { CAMERA, LANES, PALETTE, PLAYER } from '../config';
+import { createQualityGovernor } from './quality';
 import { createBlobShadow, createLights, createPlayerMesh, createSlideTexture } from './factories';
 import { createTrack, type Track } from './track';
 import { createObstacleLayer, type ObstacleLayer, type ObstacleView } from './obstacle-view';
@@ -14,6 +15,8 @@ import { createCoinLayer, type CoinLayer, type CoinView } from './coin-view';
 import { createPickupLayer, type PickupLayer, type PickupView } from './pickup-view';
 import { createShieldBubble } from './factories';
 import { createChaseCamera, type ChaseCamera } from './camera';
+import { createHitboxLayer, type HitboxLayer } from './hitbox-view';
+import type { HitboxList } from '../game/hitboxes';
 import { curveX, curveY } from './curve';
 
 /** Everything the renderer needs to draw one frame, already interpolated. */
@@ -48,12 +51,24 @@ export interface Frame {
   dead: boolean;
   /** Real seconds since the last frame, for camera damping. */
   frameSeconds: number;
+  /** The hitboxes to outline in debug mode, or null for none (SPEC 13). */
+  hitboxes: HitboxList | null;
 }
 
 export interface Renderer {
   draw(frame: Frame): void;
   /** Matches the drawing buffer to the canvas' CSS size. Call on resize. */
   resize(): void;
+  /**
+   * Counts a frame of play towards the frame-rate watch, which lowers the
+   * resolution on a phone that cannot keep up (SPEC 13).
+   */
+  measure(frameSeconds: number): void;
+  /** The resolution multiplier in use, for the debug overlay. */
+  readonly pixelRatio: number;
+  /** What the last frame cost the GPU, for the debug overlay (SPEC 13). */
+  readonly drawCalls: number;
+  readonly triangles: number;
   dispose(): void;
 }
 
@@ -90,18 +105,23 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   const shadow = createBlobShadow();
   scene.add(shadow);
 
+  const quality = createQualityGovernor(window.devicePixelRatio);
+
   const resize = (): void => {
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
     if (width === 0 || height === 0) return;
-    // Cap the pixel ratio: a 3x retina phone does not need 3x the pixels (SPEC 13).
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Capped, and lowered further on a phone that cannot keep up (SPEC 13).
+    renderer.setPixelRatio(quality.pixelRatio);
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
   };
 
   resize();
+
+  // Built the first time debug mode asks for it, and never otherwise.
+  let hitboxLayer: HitboxLayer | null = null;
 
   // Camera shake, kept across frames (SPEC 7).
   let shake = 0;
@@ -113,6 +133,8 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       obstacleLayer.update(frame.obstacles, frame.distance);
       coinLayer.update(frame.coins, frame.distance, frame.elapsed);
       pickupLayer.update(frame.pickup, frame.distance, frame.elapsed);
+      if (frame.hitboxes !== null) hitboxLayer ??= createHitboxLayer(scene);
+      hitboxLayer?.update(frame.hitboxes, frame.distance);
 
       // A stumble shakes the camera for a moment (SPEC 7). The counter only
       // ever climbs during a run, so a drop means a new run started — which
@@ -173,11 +195,24 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       renderer.render(scene, camera);
     },
     resize,
+    measure(frameSeconds) {
+      if (quality.sample(frameSeconds)) resize();
+    },
+    get pixelRatio() {
+      return quality.pixelRatio;
+    },
+    get drawCalls() {
+      return renderer.info.render.calls;
+    },
+    get triangles() {
+      return renderer.info.render.triangles;
+    },
     dispose() {
       track.dispose();
       obstacleLayer.dispose();
       coinLayer.dispose();
       pickupLayer.dispose();
+      hitboxLayer?.dispose();
       scene.remove(shieldBubble);
       shieldBubble.geometry.dispose();
       shieldBubble.material.dispose();

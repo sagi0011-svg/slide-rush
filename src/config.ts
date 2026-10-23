@@ -10,10 +10,11 @@
 export const SIM = {
   /** Simulation ticks per second. Gameplay must behave identically at any frame rate. */
   hz: 60,
-  /** Seconds per simulation tick. */
-  get dt(): number {
-    return 1 / this.hz;
-  },
+  /**
+   * Seconds per simulation tick: 1 / hz. A plain number rather than worked
+   * out on every read, which would make a little garbage every tick.
+   */
+  dt: 1 / 60,
   /** Never simulate more than this many ticks in one frame (after a tab stall). */
   maxTicksPerFrame: 5,
 } as const;
@@ -122,6 +123,27 @@ export const CURVE = {
 export const INPUT = {
   /** Finger travel, in CSS pixels, that turns a touch into a swipe. */
   swipeThresholdPx: 30,
+} as const;
+
+/**
+ * Rendering cost (SPEC 13). A phone that cannot hold the frame rate drops its
+ * resolution a notch at a time, and never climbs back (src/render/quality.ts).
+ */
+export const RENDER = {
+  /** A 3x screen does not need 3x the pixels; this is the most ever drawn. */
+  maxPixelRatio: 2,
+  /** The resolution never drops below this. */
+  minPixelRatio: 1,
+  /** How much one step down takes off. */
+  pixelRatioStep: 0.5,
+  /** A frame slower than this (under 50 fps) counts as slow. */
+  slowFrameSeconds: 1 / 50,
+  /** How long a stretch is judged at a time, in seconds of play. */
+  sampleSeconds: 2,
+  /** Step down when more than this share of the stretch was slow frames. */
+  slowShare: 0.5,
+  /** A frame longer than this is a stall or the tab returning: ignored. */
+  ignoreFrameSeconds: 0.25,
 } as const;
 
 /** Camera and presentation (SPEC 2). */
@@ -430,6 +452,16 @@ export const SAVE = {
   key: 'slide-rush/save/v1',
 } as const;
 
+/** Debug mode, `?debug=1` (SPEC 13). Never reachable in a normal game. */
+export const DEBUG = {
+  /** The speed slider multiplies the normal forward speed by this much. */
+  speedScaleMin: 0.25,
+  speedScaleMax: 2,
+  speedScaleStep: 0.05,
+  /** How far ahead hitboxes are drawn, in units; past this the fog hides them. */
+  hitboxRange: 60,
+} as const;
+
 /**
  * Placeholder palette. Every colour used by the render layer comes from here,
  * so swapping in real art later never touches game logic (CLAUDE.md rule 8).
@@ -450,4 +482,8 @@ export const PALETTE = {
   magnet: 0x9775fa,
   boost: 0xff922b,
   letterbox: 0x0b1726,
+  /** Debug hitboxes: the player, things that kill, things that trip. */
+  debugPlayer: 0x40c057,
+  debugDeadly: 0xff2d55,
+  debugStumble: 0xffd60a,
 } as const;

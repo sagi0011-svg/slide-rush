@@ -44,6 +44,7 @@ import {
 } from './tutorial';
 import { TUTORIAL_CHUNKS } from './chunks/tutorial';
 import type { Chunk } from './chunks/types';
+import { createDebugTweaks, debugTier, type DebugTweaks } from './debug-tweaks';
 
 /** What the run is doing right now. */
 export type RunPhase = 'running' | 'dead';
@@ -94,6 +95,8 @@ export interface RunState {
   shakeTrigger: number;
   /** While paused the clock stops and nothing moves. */
   paused: boolean;
+  /** Speed, difficulty and invincibility overrides from debug mode (SPEC 13). */
+  readonly debug: DebugTweaks;
 }
 
 export { forwardSpeed };
@@ -103,6 +106,11 @@ export interface RunOptions {
   library?: readonly Chunk[];
   /** Whether this run should teach the controls first (SPEC 11). */
   tutorial?: boolean;
+  /**
+   * Debug overrides. Shared rather than copied, so a slider moved during one
+   * run still holds for the next (SPEC 13).
+   */
+  debug?: DebugTweaks;
 }
 
 export function createRunState(
@@ -138,6 +146,7 @@ export function createRunState(
     stumbles: 0,
     shakeTrigger: 0,
     paused: false,
+    debug: options.debug ?? createDebugTweaks(),
   };
 }
 
@@ -182,11 +191,19 @@ function stumble(state: RunState): void {
   resetMultiplier(state.score, state.elapsed);
 }
 
-/** Where the middle of the player's body is, for coins and pickups. */
-function playerCentre(state: RunState): { x: number; y: number } {
+// Filled in place by playerCentre, so asking for it makes no garbage (rule 7).
+const centre = { x: 0, y: 0 };
+
+/**
+ * Where the middle of the player's body is, for coins and pickups. The answer
+ * is shared and overwritten by the next call, so read it straight away.
+ */
+function playerCentre(state: RunState): { readonly x: number; readonly y: number } {
   const { player } = state;
   const bodyHeight = player.vertical === 'sliding' ? PLAYER.slideHeight : PLAYER.standHeight;
-  return { x: player.laneOffset * LANES.width, y: player.height + bodyHeight / 2 };
+  centre.x = player.laneOffset * LANES.width;
+  centre.y = player.height + bodyHeight / 2;
+  return centre;
 }
 
 /** Drags nearby coins in while a magnet or a boost is running (SPEC 9). */
@@ -194,7 +211,9 @@ function applyMagnet(state: RunState, dt: number): void {
   if (!isMagnetic(state.powerUps)) return;
   const { x, y } = playerCentre(state);
 
-  for (const coin of state.spawner.coins) {
+  const { coins } = state.spawner;
+  for (let i = 0; i < coins.length; i += 1) {
+    const coin = coins[i] as (typeof coins)[number];
     if (!coin.active) continue;
     if (!coin.attracted && !withinMagnetReach(state.distance, coin)) continue;
     // Once the magnet has a coin it keeps it, even as the player goes past.
@@ -233,7 +252,9 @@ export function grantPowerUp(state: RunState, type: PowerUpType): void {
 function collectCoins(state: RunState): void {
   const { x: playerX, y: playerY } = playerCentre(state);
 
-  for (const coin of state.spawner.coins) {
+  const { coins } = state.spawner;
+  for (let i = 0; i < coins.length; i += 1) {
+    const coin = coins[i] as (typeof coins)[number];
     if (!coin.active) continue;
     // Cheap reject: anything far along the slide cannot have been touched.
     // A coin the magnet is dragging in is always worth testing.
@@ -246,7 +267,11 @@ function collectCoins(state: RunState): void {
 
 /** Checks the player against every obstacle they could be touching. */
 function resolveCollisions(state: RunState): void {
-  for (const obstacle of state.spawner.obstacles) {
+  // Debug invincibility: the player passes straight through (SPEC 13).
+  if (state.debug.invincible) return;
+  const { obstacles } = state.spawner;
+  for (let i = 0; i < obstacles.length; i += 1) {
+    const obstacle = obstacles[i] as (typeof obstacles)[number];
     if (!obstacle.active) continue;
     // Cheap reject: anything far from the player cannot be touching them.
     if (Math.abs(obstacle.s - state.distance) > 4) continue;
@@ -308,7 +333,7 @@ export function stepRun(state: RunState, dt: number = SIM.dt): void {
   state.prevDistance = state.distance;
   state.elapsed += dt;
   state.ticks += 1;
-  state.tier = tierForTime(state.elapsed);
+  state.tier = debugTier(state.debug, tierForTime(state.elapsed));
 
   if (state.stumbleRecovery > 0) {
     state.stumbleRecovery = Math.max(0, state.stumbleRecovery - dt);
@@ -318,7 +343,8 @@ export function stepRun(state: RunState, dt: number = SIM.dt): void {
   const baseSpeed =
     forwardSpeed(state.elapsed) *
     stumbleSpeedFactor(state.stumbleRecovery) *
-    tutorialSpeedFactor(state.tutorial);
+    tutorialSpeedFactor(state.tutorial) *
+    state.debug.speedScale;
   state.speed = speedWithPowerUps(state.powerUps, baseSpeed);
   state.distance += state.speed * dt;
   stepPowerUps(state.powerUps, dt, baseSpeed);

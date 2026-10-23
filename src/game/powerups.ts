@@ -155,7 +155,8 @@ export function stepPowerUps(state: PowerUpState, dt: number, baseSpeed: number)
   const boostWasRunning = state.boost > 0;
   const speedBefore = speedWithPowerUps(state, baseSpeed);
 
-  for (const type of POWERUP_TYPES) {
+  for (let i = 0; i < POWERUP_TYPES.length; i += 1) {
+    const type = POWERUP_TYPES[i] as PowerUpType;
     if (state[type] <= 0) continue;
     state[type] = Math.max(0, state[type] - dt);
     // Ran out by itself, rather than being spent on a hit.

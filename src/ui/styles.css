@@ -459,20 +459,21 @@ body {
   }
 }
 
-/* Debug overlay (?debug=1). Grows into the full overlay from SPEC 13 in M8. */
+/* Debug overlay (?debug=1, SPEC 13): numbers, sliders and switches. */
 #debug {
   position: absolute;
   /* On the right, clear of the power-up timers down the left and of the
-     player at the bottom of the frame. */
+     player at the bottom of the frame, and below the pause button. */
   right: 14px;
-  top: calc(env(safe-area-inset-top, 0px) + 78px);
+  top: calc(env(safe-area-inset-top, 0px) + 112px);
   display: none;
   font:
-    12px / 1.45 ui-monospace,
+    11px / 1.4 ui-monospace,
     'SF Mono',
     Menlo,
     monospace;
   white-space: pre;
+  max-width: 47%;
   background: rgba(0, 0, 0, 0.45);
   padding: 6px 8px;
   border-radius: 6px;
@@ -481,4 +482,44 @@ body {
 
 #debug.visible {
   display: block;
+}
+
+#debug pre {
+  margin: 0;
+  font: inherit;
+}
+
+/* The controls take touches; the numbers above them do not. */
+#debug details {
+  pointer-events: auto;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+#debug summary {
+  cursor: pointer;
+}
+
+#debug .controls {
+  margin-top: 4px;
+  display: grid;
+  gap: 4px;
+  white-space: normal;
+}
+
+#debug .controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#debug .controls input[type='range'] {
+  width: 72px;
+  margin: 0;
+}
+
+#debug .keys {
+  opacity: 0.75;
+  font-size: 10px;
 }

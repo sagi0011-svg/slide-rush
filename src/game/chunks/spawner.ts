@@ -107,14 +107,16 @@ export function createSpawner(
   let overflowed = false;
 
   const takeObstacle = (): PooledObstacle | null => {
-    for (const slot of obstacles) {
+    for (let i = 0; i < obstacles.length; i += 1) {
+      const slot = obstacles[i] as PooledObstacle;
       if (!slot.active) return slot;
     }
     return null;
   };
 
   const takeCoin = (): PooledCoin | null => {
-    for (const slot of coins) {
+    for (let i = 0; i < coins.length; i += 1) {
+      const slot = coins[i] as PooledCoin;
       if (!slot.active) return slot;
     }
     return null;
@@ -194,16 +196,16 @@ export function createSpawner(
     },
 
     update(playerS: number, tier: number, easyOnly = false) {
-      // Retire what the player has already passed.
-      for (const slot of obstacles) {
-        if (slot.active && slot.s < playerS - TRACK.despawnBehind) {
-          slot.active = false;
-        }
+      // Retire what the player has already passed. Indexed loops: this runs
+      // every tick over every slot, and must make no garbage (rule 7).
+      const behind = playerS - TRACK.despawnBehind;
+      for (let i = 0; i < obstacles.length; i += 1) {
+        const slot = obstacles[i] as PooledObstacle;
+        if (slot.active && slot.s < behind) slot.active = false;
       }
-      for (const slot of coins) {
-        if (slot.active && slot.s < playerS - TRACK.despawnBehind) {
-          slot.active = false;
-        }
+      for (let i = 0; i < coins.length; i += 1) {
+        const slot = coins[i] as PooledCoin;
+        if (slot.active && slot.s < behind) slot.active = false;
       }
       if (pickup.active && pickup.s < playerS - TRACK.despawnBehind) {
         pickup.active = false;

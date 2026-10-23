@@ -34,7 +34,10 @@ import { createInputSource } from './input';
 import { createRenderer, type Frame, type Renderer } from './render/scene';
 import { frameAlpha, lerp } from './render/interpolate';
 import { createAudioManager } from './audio/manager';
-import { createDebugOverlay, isDebugEnabled } from './debug/overlay';
+import { createDebugOverlay, isDebugEnabled, type DebugInfo } from './debug/overlay';
+import { createDebugTweaks, setSpeedScale, setTierOverride } from './game/debug-tweaks';
+import { collectHitboxes, createHitboxList } from './game/hitboxes';
+import type { HudValues } from './ui/hud';
 import { createFeedback } from './ui/feedback';
 import { createHud } from './ui/hud';
 import { createScreens } from './ui/screens';
@@ -62,7 +65,29 @@ function boot(): void {
   const save = createSaveStore(browserStorage());
   const flow = createFlow();
   const stepper = createFixedStepper(SIM.dt, SIM.maxTicksPerFrame);
-  const debug = createDebugOverlay(requireElement('debug'), isDebugEnabled());
+  // Debug mode's overrides (SPEC 13). Shared by every run, so a slider holds
+  // across restarts; in a normal game they are never touched.
+  const tweaks = createDebugTweaks();
+  let showHitboxes = true;
+  const debug = createDebugOverlay(requireElement('debug'), isDebugEnabled(), {
+    onSpeedScale: (value) => setSpeedScale(tweaks, value),
+    onTier: (tier) => setTierOverride(tweaks, tier),
+    onInvincible: (on) => {
+      tweaks.invincible = on;
+    },
+    onHitboxes: (on) => {
+      showHitboxes = on;
+    },
+  });
+  const syncDebug = (): void =>
+    debug.sync({
+      speedScale: tweaks.speedScale,
+      tier: tweaks.tier,
+      invincible: tweaks.invincible,
+      hitboxes: showHitboxes,
+    });
+  syncDebug();
+  const hitboxList = createHitboxList();
 
   let renderer: Renderer;
   try {
@@ -74,7 +99,7 @@ function boot(): void {
   }
 
   const newRun = (): RunState =>
-    createRunState(fixedSeed ?? randomSeed(), { tutorial: !save.data.tutorialSeen });
+    createRunState(fixedSeed ?? randomSeed(), { tutorial: !save.data.tutorialSeen, debug: tweaks });
 
   let state = newRun();
   let lastStumbles = state.stumbles;
@@ -124,6 +149,7 @@ function boot(): void {
     shakeEnabled: feedback.enabled,
     dead: false,
     frameSeconds: 0,
+    hitboxes: null,
   };
 
   const handleEvent = (event: FlowEvent): void => {
@@ -199,8 +225,9 @@ function boot(): void {
     }
   });
 
-  // Debug keys: 1, 2 and 3 grant the three power-ups, so they can be tried
-  // without waiting for a pickup (SPEC 13).
+  // Debug keys (SPEC 13): 1, 2 and 3 grant the three power-ups, so they can be
+  // tried without waiting for a pickup; I toggles invincibility and H the
+  // hitboxes.
   if (debug.enabled) {
     const debugGrants: Record<string, PowerUpType> = {
       Digit1: 'shield',
@@ -210,11 +237,46 @@ function boot(): void {
     window.addEventListener('keydown', (event) => {
       const type = debugGrants[event.code];
       if (type !== undefined) grantPowerUp(state, type);
+      if (event.code === 'KeyI') tweaks.invincible = !tweaks.invincible;
+      if (event.code === 'KeyH') showHitboxes = !showHitboxes;
+      if (event.code === 'KeyI' || event.code === 'KeyH') syncDebug();
     });
   }
 
   // Reused every frame rather than rebuilt, like the frame object (rule 7).
   const powerUpBars: Record<PowerUpType, number> = { shield: 0, magnet: 0, boost: 0 };
+  const hudValues: HudValues = {
+    score: 0,
+    coins: 0,
+    multiplier: 1,
+    bestScore: 0,
+    powerUps: powerUpBars,
+    visible: false,
+  };
+  // What the debug panel shows, read only when it is about to show it.
+  const fillDebugInfo = (info: DebugInfo): void => {
+    const { player, spawner } = state;
+    info.elapsed = state.elapsed;
+    info.seed = state.rng.seed;
+    info.ticks = state.ticks;
+    info.speed = state.speed;
+    info.lane = player.laneTarget;
+    info.vertical = player.vertical;
+    info.paused = state.paused;
+    info.tier = state.tier;
+    info.stumbles = state.stumbles;
+    info.phase = `${flow.phase}/${state.phase}${tweaks.invincible ? ' (invincible)' : ''}`;
+    info.chunk = spawner.lastChunkId;
+    info.powerUps = POWERUP_TYPES.filter((type) => isActive(state.powerUps, type)).join(' ');
+    info.pickup = spawner.pickup.active
+      ? `${spawner.pickup.type} in ${Math.round(spawner.pickup.s - state.distance)}`
+      : spawner.pickupPending
+        ? 'waiting'
+        : `due ${Math.round(state.nextPickupAt - state.elapsed)}s`;
+    info.drawCalls = renderer.drawCalls;
+    info.pixelRatio = renderer.pixelRatio;
+    info.triangles = renderer.triangles;
+  };
 
   let lastFrameMs = performance.now();
 
@@ -280,19 +342,25 @@ function boot(): void {
     frame.shakeEnabled = feedback.enabled;
     frame.dead = state.phase === 'dead';
     frame.frameSeconds = frameSeconds;
+    if (debug.enabled && showHitboxes) {
+      collectHitboxes(state, hitboxList);
+      frame.hitboxes = hitboxList;
+    } else {
+      frame.hitboxes = null;
+    }
     renderer.draw(frame);
+    // Only frames of actual play say anything about whether the phone keeps up.
+    if (flow.phase === 'playing') renderer.measure(frameSeconds);
 
     for (const type of POWERUP_TYPES) {
       powerUpBars[type] = remainingFraction(state.powerUps, type);
     }
-    hud.update({
-      score: displayScore(state.score),
-      coins: state.score.coins,
-      multiplier: state.score.multiplier,
-      bestScore: save.data.bestScore,
-      powerUps: powerUpBars,
-      visible: flow.phase === 'playing',
-    });
+    hudValues.score = displayScore(state.score);
+    hudValues.coins = state.score.coins;
+    hudValues.multiplier = state.score.multiplier;
+    hudValues.bestScore = save.data.bestScore;
+    hudValues.visible = flow.phase === 'playing';
+    hud.update(hudValues);
 
     // A prompt only shows while a lesson is actually waiting (SPEC 11).
     const step = state.tutorial.waiting ? currentStep(state.tutorial) : null;
@@ -301,25 +369,7 @@ function boot(): void {
       usingKeyboard,
     );
 
-    debug.update(frameSeconds, {
-      elapsed: state.elapsed,
-      seed: state.rng.seed,
-      ticks: state.ticks,
-      speed: state.speed,
-      lane: player.laneTarget,
-      vertical: player.vertical,
-      paused: state.paused,
-      tier: state.tier,
-      stumbles: state.stumbles,
-      phase: `${flow.phase}/${state.phase}`,
-      chunk: state.spawner.lastChunkId,
-      powerUps: POWERUP_TYPES.filter((type) => isActive(state.powerUps, type)).join(' '),
-      pickup: state.spawner.pickup.active
-        ? `${state.spawner.pickup.type} in ${Math.round(state.spawner.pickup.s - state.distance)}`
-        : state.spawner.pickupPending
-          ? 'waiting'
-          : `due ${Math.round(state.nextPickupAt - state.elapsed)}s`,
-    });
+    debug.update(frameSeconds, fillDebugInfo);
 
     window.requestAnimationFrame(tick);
   };
