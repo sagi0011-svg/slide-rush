@@ -101,6 +101,9 @@ Collected by touching a floating pickup on the track. A pickup spawns roughly ev
 - One looping background music track (CC0 or generated). Water/slide ambience loop.
 - Mute toggle persists. Audio starts only after first user interaction (browser rule).
 - Sources must be CC0/royalty-free; list them in `ASSETS.md`.
+- MVP: every sound is generated in the browser from `AUDIO` in `src/config.ts`; no audio files ship. Coins in quick succession climb in pitch.
+- Music plays on every screen, quieter behind the start, pause and game over screens. The water loop only runs while playing. Leaving the tab stops all sound.
+- While muted no audio is started at all. Nothing that happened while muted is played when sound comes back.
 
 ## 13. Quality bar
 - 60 fps on a mid-range phone (≈ 3-year-old Android / iPhone). Keep draw calls low (instancing for coins), no shadows beyond a simple blob shadow under the player.

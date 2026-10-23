@@ -2,7 +2,7 @@
 
 An endless runner set on a water-park slide, in the spirit of Subway Surfers. Slide down, switch between 3 lanes, jump over mines, duck under arches, grab coins and power-ups, and see how far you get.
 
-**Status:** M6 done — title screen, first-run tutorial, pause and game over. A new player can open the link and work it out.
+**Status:** M7 done — sound effects, background music and water ambience, all generated in the browser (see [ASSETS.md](ASSETS.md)). The sound button on the title and pause screens is remembered.
 
 > Hit feedback: the phone vibrates on a trip or a crash where the browser
 > allows it. Safari on iOS has never supported the Vibration API, and every
@@ -20,6 +20,7 @@ An endless runner set on a water-park slide, in the spirit of Subway Surfers. Sl
 - [Game spec](docs/SPEC.md) — what the game is, every rule and number
 - [Milestones](docs/MILESTONES.md) — build order, with a ready prompt per milestone
 - [CLAUDE.md](CLAUDE.md) — working rules for Claude Code in this repo
+- [Assets](ASSETS.md) — where every sound and visual comes from, and its licence
 
 ## Controls
 
