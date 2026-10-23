@@ -18,8 +18,13 @@ import { SFX_NAMES, type SfxName } from './sounds';
 import type { Samples } from './synth';
 
 export interface SoundEngine {
-  /** True once there is a running context with its buffers in place. */
+  /** True once there is a context with its buffers in place. */
   readonly ready: boolean;
+  /**
+   * True while the browser is actually letting it play. A context can exist
+   * and still be held back, until a gesture the browser accepts comes along.
+   */
+  readonly running: boolean;
   /**
    * Builds the sounds ahead of time, a piece at a time, while the title screen
    * is up. Building them needs no permission from the browser — only playing
@@ -124,6 +129,10 @@ export function createWebAudioEngine(): SoundEngine {
   return {
     get ready() {
       return context !== null;
+    },
+
+    get running() {
+      return context !== null && context.state === 'running';
     },
 
     prepare() {

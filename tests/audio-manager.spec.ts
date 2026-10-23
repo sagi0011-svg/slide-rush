@@ -19,6 +19,8 @@ interface FakeEngine extends SoundEngine {
   readonly beds: Array<[number, number]>;
   readonly mutes: boolean[];
   readonly suspends: boolean[];
+  /** Pretends the browser is (or is no longer) holding the sound back. */
+  holdBack(held: boolean): void;
 }
 
 function fakeEngine(): FakeEngine {
@@ -28,10 +30,18 @@ function fakeEngine(): FakeEngine {
   const beds: Array<[number, number]> = [];
   const mutes: boolean[] = [];
   const suspends: boolean[] = [];
+  // A browser that has not accepted a gesture yet.
+  let heldBack = false;
 
   return {
     get ready() {
       return starts > 0;
+    },
+    get running() {
+      return starts > 0 && !heldBack;
+    },
+    holdBack(held: boolean) {
+      heldBack = held;
     },
     get prepares() {
       return prepares;
@@ -118,6 +128,31 @@ describe('before the player has touched the page (SPEC 12)', () => {
     audio.unlock();
     audio.unlock();
     expect(audio.unlocked).toBe(true);
+    expect(engine.starts).toBe(1);
+  });
+
+  it('asks again on the next touch while the browser holds the sound back', () => {
+    // On a phone, putting a finger down does not count; lifting it does.
+    const { engine, audio } = setup();
+    engine.holdBack(true);
+    audio.unlock();
+    expect(audio.running).toBe(false);
+    audio.unlock();
+    expect(engine.starts).toBe(2);
+
+    // Once it plays, a touch has nothing left to do.
+    engine.holdBack(false);
+    expect(audio.running).toBe(true);
+    audio.unlock();
+    expect(engine.starts).toBe(2);
+  });
+
+  it('does not ask while the tab is away', () => {
+    const { engine, audio } = setup();
+    engine.holdBack(true);
+    audio.unlock();
+    audio.setHidden(true);
+    audio.unlock();
     expect(engine.starts).toBe(1);
   });
 });

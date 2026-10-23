@@ -88,12 +88,16 @@ function boot(): void {
   audio.prepare();
   // Browsers refuse to vibrate or play sound until the player has touched the
   // page, and complain loudly about every attempt before then (SPEC 12).
+  // Which events count differs: a mouse press does, but on a touch screen only
+  // lifting the finger does. So all of them ask, every time, and the audio
+  // manager only acts while sound is still held back.
   const unlockFeedback = (): void => {
     feedback.unlock();
     audio.unlock();
   };
-  window.addEventListener('pointerdown', unlockFeedback, { once: true });
-  window.addEventListener('keydown', unlockFeedback, { once: true });
+  for (const type of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) {
+    window.addEventListener(type, unlockFeedback, { capture: true, passive: true });
+  }
 
   // Whether the player is on a keyboard, so the prompts name the right thing.
   let usingKeyboard = false;

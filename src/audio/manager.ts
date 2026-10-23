@@ -11,7 +11,10 @@
  * Two browser facts shape it:
  *  - **Nothing may play before the first touch.** Browsers block it and log an
  *    error for every attempt, so no audio context is even built until then —
- *    the same pattern as `unlock()` in src/ui/feedback.ts.
+ *    the same pattern as `unlock()` in src/ui/feedback.ts. And not every touch
+ *    counts: on a touch screen the browser only accepts lifting the finger,
+ *    not putting it down, and a phone can hold audio back again after the
+ *    app was switched away. So every gesture asks again, until it plays.
  *  - **Muted means muted.** The setting is saved (SPEC 10), and while it is on
  *    no context is started at all, so a muted game costs the battery nothing.
  */
@@ -30,8 +33,13 @@ export interface AudioManager {
   prepare(): void;
   /** True while sound is switched off. Comes from the save (SPEC 10). */
   readonly muted: boolean;
-  /** Called by the first tap or key press. */
+  /**
+   * Called by every tap, click and key press. The first one allows sound; the
+   * rest start it again if the browser is still holding it back.
+   */
   unlock(): void;
+  /** True while sound is actually coming out, as far as the browser says. */
+  readonly running: boolean;
   /** The sound button. */
   setMuted(muted: boolean): void;
   /** Plays one effect, unless it played a moment ago. */
@@ -70,6 +78,7 @@ export function createAudioManager(options: AudioManagerOptions = {}): AudioMana
 
   let unlocked = false;
   let muted = false;
+  let hidden = false;
   let phase: AppPhase = 'start';
 
   // When each effect last played, so nothing can machine-gun.
@@ -128,12 +137,17 @@ export function createAudioManager(options: AudioManagerOptions = {}): AudioMana
       if (!muted) engine.prepare();
     },
 
+    get running() {
+      return engine.running;
+    },
+
     unlock() {
-      if (unlocked) return;
+      const first = !unlocked;
       unlocked = true;
-      // A muted game never builds an audio context in the first place.
-      if (!muted) engine.start();
-      applyBeds();
+      // A muted game never builds an audio context in the first place. A
+      // context the browser is still holding back is asked again.
+      if (!muted && !hidden && !engine.running) engine.start();
+      if (first) applyBeds();
     },
 
     setMuted(next) {
@@ -153,8 +167,9 @@ export function createAudioManager(options: AudioManagerOptions = {}): AudioMana
       applyBeds();
     },
 
-    setHidden(hidden) {
-      engine.setSuspended(hidden);
+    setHidden(next) {
+      hidden = next;
+      engine.setSuspended(next);
     },
 
     observe(state) {
