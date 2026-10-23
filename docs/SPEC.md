@@ -113,6 +113,8 @@ Collected by touching a floating pickup on the track. A pickup spawns roughly ev
 - Unit tests for all game rules; chunk fairness validator; tests run in CI on every push.
 - **Debug mode** (`?debug=1`): draws hitboxes, shows fps, tier, speed, seed; sliders to tweak speed/difficulty live; keys to grant any power-up and to toggle invincibility.
 - Works on latest Chrome, Safari (iOS) and Firefox.
+- A phone that cannot hold 50 fps steps its resolution down (2x, 1.5x, 1x) during play. Each step is a trial and is undone if frames did not get faster, so a battery-saver 30 fps cap never costs picture quality (`RENDER` in `src/config.ts`).
+- Three.js ships as its own file, so it stays cached between updates.
 
 ## 14. Out of scope (MVP)
 Shop/upgrades, online leaderboards, revive, missions, characters/skins, final art and animation, Hebrew UI, ads, accounts, native app wrapping. The code should leave room for: a shop that spends `totalCoins`, swapping placeholder meshes for models, and adding locales.

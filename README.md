@@ -2,7 +2,7 @@
 
 An endless runner set on a water-park slide, in the spirit of Subway Surfers. Slide down, switch between 3 lanes, jump over mines, duck under arches, grab coins and power-ups, and see how far you get.
 
-**Status:** M7 done — sound effects, background music and water ambience, all generated in the browser (see [ASSETS.md](ASSETS.md)). The sound button on the title and pause screens is remembered.
+**Status:** M8 done, waiting for phone QA before tagging `v0.1.0`. Full debug mode, a performance pass, Three.js in its own cached file, and sound that starts properly on phones.
 
 > Hit feedback: the phone vibrates on a trip or a crash where the browser
 > allows it. Safari on iOS has never supported the Vibration API, and every
@@ -47,11 +47,13 @@ npm run preview          # serve the production build locally
 
 | Flag | What it does |
 |---|---|
-| `?debug=1` | Shows fps, simulated time, tick count and the run seed |
+| `?debug=1` | Debug panel: fps and the slowest frame, draw calls, resolution, speed, tier, seed and more, plus sliders and switches |
 | `?seed=123` | Forces the run seed, so a run can be reproduced exactly |
 | `1` `2` `3` | With `?debug=1`: grants shield, magnet and speed boost |
+| `I` | With `?debug=1`: invincibility on/off (obstacles are passed straight through) |
+| `H` | With `?debug=1`: hitbox outlines on/off (green player, red deadly, yellow trips) |
 
-Debug also reports speed, lane, difficulty tier, stumbles, the current chunk and the player state.
+The panel also has a **speed** slider (x0.25 to x2) and a **tier** slider (auto, or hold any difficulty tier). Both stay set across restarts until the page is reloaded. Tap **controls** to fold the panel away.
 
 ### Deployment
 
