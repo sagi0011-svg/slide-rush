@@ -96,6 +96,11 @@ export const TRACK = {
   breatherByTier: [22, 14, 7, 0],
   /** How far behind the player an obstacle is forgotten, in units. */
   despawnBehind: 12,
+  /**
+   * Every run that does not open with the tutorial opens with this many units
+   * of coins and nothing to dodge, so the player can find their feet (SPEC 6).
+   */
+  openingLength: 100,
   /** How many obstacles can be alive at once; the pool never grows (rule 7). */
   obstaclePoolSize: 96,
 } as const;
@@ -441,9 +446,19 @@ export const AUDIO = {
 
 /** The first-run tutorial (SPEC 11). */
 export const TUTORIAL = {
-  /** How far ahead of the obstacle the slide starts holding, in units. */
-  holdDistance: 14,
-  /** How fast the slide creeps while a prompt waits, as a fraction of normal. */
+  /**
+   * How far ahead of the obstacle the slow-down starts, in units. Close
+   * enough that a jump or slide made the moment it starts still carries the
+   * player past: at the starting speed each covers about 9 units, and a jump
+   * started more than about 7 units out comes down on the mine.
+   */
+  holdDistance: 6.5,
+  /**
+   * Where the slide comes to rest while a prompt waits, in units before the
+   * obstacle: about the middle of a jump or a slide at the starting speed.
+   */
+  stopDistance: 4.5,
+  /** How fast the slide creeps as the slow-down starts, as a fraction of normal. */
   holdSpeedFactor: 0.18,
 } as const;
 

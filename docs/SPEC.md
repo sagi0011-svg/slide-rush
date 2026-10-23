@@ -41,6 +41,7 @@ Source of truth for rules and numbers. All numbers are starting values and live 
 - The track is filled with **hand-authored chunks**: short (40 unit) patterns of obstacles, coins and optional pickup slot, defined as data in `src/game/chunks/`.
 - Each chunk has: id, tier range, length, list of placements `{type, lane, z}`.
 - The spawner picks chunks at random (seeded) from the pool allowed by the current tier, avoiding the same chunk twice in a row. Short empty "breather" gaps between chunks at lower tiers.
+- **Opening stretch:** every run that does not start with the tutorial opens with **100 units of coins and no obstacles** before the first random chunk, so the player can find their feet.
 - **Fairness rule (enforced by a test):** every chunk, and every pair of consecutive chunks, has at least one survivable path given lane-change time, jump/slide durations and the max speed of its tiers. A validator test checks all chunks.
 - The validator searches the real player simulation, and is deliberately stricter than the rule above: the path it finds must take **no hits at all** (not even a stumble), must work from **every lane the player could arrive in**, and may only act on a coarse time grid. A chunk that passes is therefore comfortably fair.
 - Coin trails in chunks guide the player along the good path (lines, arcs over jumps).
@@ -89,7 +90,8 @@ Collected by touching a floating pickup on the track. A pickup spawns roughly ev
 ## 11. Screens and flow
 1. **Start screen:** title, Play, best score, mute toggle, shake & flash toggle.
 2. **First-run tutorial:** the first run starts with 3 gentle guided prompts (swipe to move, swipe up to jump, swipe down to slide), each waiting for the correct action in front of a matching easy obstacle. Skippable. Never shown again once completed.
-   - "Waiting" means the slide slows to a crawl in front of the obstacle until the right move is made, and nothing can hurt the player until the tutorial is over. A first-time player cannot be killed by the thing they are being taught to get past.
+   - "Waiting" means the slide slows down about 6.5 units before the obstacle and eases to a stop about 4.5 units before it, until the right move is made. That is close enough that the move, made at any moment of the wait, carries the player cleanly over, under or past the obstacle at the starting speed.
+   - Nothing can hurt the player anywhere on the tutorial's track, including just after the last lesson and after skipping it. A first-time player cannot be killed by the thing they are being taught to get past.
    - The prompts name keys instead of swipes once the player has touched the keyboard.
 3. **In-game HUD:** score, coin count, multiplier, active power-up timers, pause button. Top of screen, safe-area aware (notches).
 4. **Pause:** Resume, Restart, mute, shake & flash. Game auto-pauses when the tab/app loses focus.

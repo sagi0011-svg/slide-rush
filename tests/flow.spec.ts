@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEATH, SIM, TUTORIAL } from '../src/config';
+import { checkObstacle } from '../src/game/collisions';
 import {
   applyFlowEvent,
   createFlow,
@@ -15,13 +16,14 @@ import {
   currentStep,
   skipTutorial,
   stepAccepts,
+  tutorialProtects,
   tutorialSpeedFactor,
   tutorialTakesAction,
   TUTORIAL_STEPS,
   updateTutorial,
 } from '../src/game/tutorial';
 import { applyAction, createRunState, deathBeatOver, stepRun } from '../src/game/state';
-import { TUTORIAL_CHUNKS } from '../src/game/chunks/tutorial';
+import { TUTORIAL_CHUNKS, TUTORIAL_TRACK_END } from '../src/game/chunks/tutorial';
 
 const DT = SIM.dt;
 
@@ -139,7 +141,7 @@ describe('the first-run tutorial (SPEC 11)', () => {
     const state = createTutorial(false);
     expect(state.done).toBe(true);
     expect(currentStep(state)).toBeNull();
-    expect(tutorialSpeedFactor(state)).toBe(1);
+    expect(tutorialSpeedFactor(state, 0)).toBe(1);
   });
 
   it('only accepts the move it is asking for', () => {
@@ -160,12 +162,12 @@ describe('the first-run tutorial (SPEC 11)', () => {
 
     updateTutorial(state, first - TUTORIAL.holdDistance - 5);
     expect(state.waiting).toBe(false);
-    expect(tutorialSpeedFactor(state)).toBe(1);
+    expect(tutorialSpeedFactor(state, 0)).toBe(1);
 
     updateTutorial(state, first - TUTORIAL.holdDistance + 1);
     expect(state.waiting).toBe(true);
-    expect(tutorialSpeedFactor(state)).toBeLessThan(1);
-    expect(tutorialSpeedFactor(state)).toBeGreaterThan(0);
+    expect(tutorialSpeedFactor(state, 0)).toBeLessThan(1);
+    expect(tutorialSpeedFactor(state, 0)).toBeGreaterThan(0);
 
     expect(tutorialTakesAction(state, 'left')).toBe(true);
     expect(state.waiting).toBe(false);
@@ -195,7 +197,29 @@ describe('the first-run tutorial (SPEC 11)', () => {
     }
     expect(state.done).toBe(true);
     expect(currentStep(state)).toBeNull();
-    expect(tutorialSpeedFactor(state)).toBe(1);
+    expect(tutorialSpeedFactor(state, 0)).toBe(1);
+  });
+
+  it('eases the slide to a stop in front of the obstacle', () => {
+    const state = createTutorial(true);
+    const first = TUTORIAL_STEPS[0]?.atS ?? 0;
+    updateTutorial(state, first - TUTORIAL.holdDistance);
+    expect(tutorialSpeedFactor(state, first - TUTORIAL.holdDistance)).toBe(
+      TUTORIAL.holdSpeedFactor,
+    );
+    const halfway = first - (TUTORIAL.holdDistance + TUTORIAL.stopDistance) / 2;
+    expect(tutorialSpeedFactor(state, halfway)).toBeCloseTo(TUTORIAL.holdSpeedFactor / 2, 9);
+    expect(tutorialSpeedFactor(state, first - TUTORIAL.stopDistance)).toBe(0);
+  });
+
+  it('keeps the player from harm until its own track is behind them', () => {
+    const state = createTutorial(true);
+    expect(tutorialProtects(state, 0)).toBe(true);
+    skipTutorial(state);
+    expect(tutorialProtects(state, TUTORIAL_TRACK_END - 1)).toBe(true);
+    expect(tutorialProtects(state, TUTORIAL_TRACK_END)).toBe(false);
+    // And a run without it is never protected.
+    expect(tutorialProtects(createTutorial(false), 0)).toBe(false);
   });
 
   it('can be skipped', () => {
@@ -206,7 +230,7 @@ describe('the first-run tutorial (SPEC 11)', () => {
     skipTutorial(state);
     expect(state.done).toBe(true);
     expect(state.waiting).toBe(false);
-    expect(tutorialSpeedFactor(state)).toBe(1);
+    expect(tutorialSpeedFactor(state, 0)).toBe(1);
   });
 });
 
@@ -241,10 +265,58 @@ describe('the tutorial in a real run', () => {
     expect(state.phase).toBe('running');
   });
 
+  /**
+   * Plays the tutorial through, answering each prompt `delay` seconds after
+   * it comes up, and counts the times the player touched a lesson's obstacle.
+   */
+  function playThrough(delay: number): { touches: number; dead: boolean; held: boolean } {
+    const state = createRunState(1, { tutorial: true });
+    const answers = { move: 'right', jump: 'jump', slide: 'slide' } as const;
+    let touches = 0;
+    let waitedFor = 0;
+    let held = true;
+    for (let i = 0; i < 60 * 200 && state.distance < TUTORIAL_TRACK_END; i += 1) {
+      stepRun(state, DT);
+      for (const obstacle of state.spawner.obstacles) {
+        if (!obstacle.active) continue;
+        if (checkObstacle(state.player, state.distance, state.prevDistance, obstacle)) touches += 1;
+      }
+      const step = currentStep(state.tutorial);
+      if (step === null || !state.tutorial.waiting) continue;
+      if (state.distance > step.atS - TUTORIAL.stopDistance) held = false;
+      waitedFor += DT;
+      if (waitedFor >= delay) {
+        applyAction(state, answers[step.id]);
+        waitedFor = 0;
+      }
+    }
+    return { touches, dead: state.phase === 'dead', held };
+  }
+
+  it('carries a player who answers at once cleanly past every obstacle', () => {
+    expect(playThrough(0)).toEqual({ touches: 0, dead: false, held: true });
+  });
+
+  it('carries a player who takes their time cleanly past every obstacle', () => {
+    expect(playThrough(4)).toEqual({ touches: 0, dead: false, held: true });
+  });
+
+  it('cannot kill a player who skips it in front of a wall', () => {
+    const state = createRunState(1, { tutorial: true });
+    for (let i = 0; i < 60 * 30 && !state.tutorial.waiting; i += 1) stepRun(state, DT);
+    expect(state.tutorial.waiting).toBe(true);
+    skipTutorial(state.tutorial);
+    // Straight on into all three lessons, doing nothing.
+    for (let i = 0; i < 60 * 60 && state.distance < TUTORIAL_TRACK_END - 1; i += 1)
+      stepRun(state, DT);
+    expect(state.phase).toBe('running');
+    expect(state.distance).toBeGreaterThanOrEqual(TUTORIAL_TRACK_END - 1);
+  });
+
   it('runs normally for someone who has already seen it', () => {
     const state = createRunState(1, { tutorial: false });
     expect(state.tutorial.done).toBe(true);
-    for (let i = 0; i < 60 * 10; i += 1) stepRun(state, DT);
+    for (let i = 0; i < 60 * 20; i += 1) stepRun(state, DT);
     // Without the tutorial's protection, doing nothing ends badly.
     expect(state.phase).toBe('dead');
   });

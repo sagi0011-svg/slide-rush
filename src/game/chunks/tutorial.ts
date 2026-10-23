@@ -62,3 +62,6 @@ export const TUTORIAL_CHUNKS: readonly Chunk[] = [
 export const TUTORIAL_STEP_POSITIONS: readonly number[] = TUTORIAL_CHUNKS.map(
   (_, index) => index * (LENGTH + breatherForTier(0)) + OBSTACLE_Z,
 );
+
+/** Where the tutorial's track ends and the random chunks begin, in units. */
+export const TUTORIAL_TRACK_END = TUTORIAL_CHUNKS.length * (LENGTH + breatherForTier(0));

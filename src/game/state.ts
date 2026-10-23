@@ -37,12 +37,14 @@ import {
 import { tierForTime } from './difficulty';
 import {
   createTutorial,
+  tutorialProtects,
   tutorialSpeedFactor,
   tutorialTakesAction,
   updateTutorial,
   type TutorialState,
 } from './tutorial';
 import { TUTORIAL_CHUNKS } from './chunks/tutorial';
+import { OPENING_CHUNK } from './chunks/opening';
 import type { Chunk } from './chunks/types';
 import { createDebugTweaks, debugTier, type DebugTweaks } from './debug-tweaks';
 
@@ -121,6 +123,14 @@ export function createRunState(
     ? { library: libraryOrOptions }
     : ((libraryOrOptions as RunOptions | undefined) ?? {});
   const withTutorial = options.tutorial === true;
+  // The tutorial is its own gentle start. Otherwise a run on the real track
+  // opens with a stretch of coins and nothing else (SPEC 6); a test's own
+  // library is laid from the very start, as written.
+  const opening = withTutorial
+    ? TUTORIAL_CHUNKS
+    : options.library === undefined
+      ? [OPENING_CHUNK]
+      : [];
   const rng = createRng(seed);
   return {
     rng,
@@ -130,7 +140,7 @@ export function createRunState(
     prevDistance: 0,
     speed: SPEED.start,
     player: createPlayer(),
-    spawner: createSpawner(rng, options.library ?? undefined, withTutorial ? TUTORIAL_CHUNKS : []),
+    spawner: createSpawner(rng, options.library ?? undefined, opening),
     tutorial: createTutorial(withTutorial),
     score: createScore(),
     powerUps: createPowerUps(),
@@ -279,9 +289,9 @@ function resolveCollisions(state: RunState): void {
     const hit = checkObstacle(state.player, state.distance, state.prevDistance, obstacle);
     if (hit === null) continue;
 
-    // A first-time player cannot be killed by the obstacle they are being
-    // taught to get past (SPEC 11).
-    if (!state.tutorial.done) continue;
+    // Nothing on the tutorial's track can hurt a first-time player, even
+    // just after the last lesson (SPEC 11).
+    if (tutorialProtects(state.tutorial, state.distance)) continue;
 
     // Boosting, or in a moment of grace: the obstacle is smashed aside and
     // nothing happens to the player (SPEC 9).
@@ -338,12 +348,12 @@ export function stepRun(state: RunState, dt: number = SIM.dt): void {
   if (state.stumbleRecovery > 0) {
     state.stumbleRecovery = Math.max(0, state.stumbleRecovery - dt);
   }
-  // A tutorial prompt holds the slide to a crawl until the player acts.
+  // A tutorial prompt eases the slide to a stop until the player acts.
   updateTutorial(state.tutorial, state.distance);
   const baseSpeed =
     forwardSpeed(state.elapsed) *
     stumbleSpeedFactor(state.stumbleRecovery) *
-    tutorialSpeedFactor(state.tutorial) *
+    tutorialSpeedFactor(state.tutorial, state.distance) *
     state.debug.speedScale;
   state.speed = speedWithPowerUps(state.powerUps, baseSpeed);
   state.distance += state.speed * dt;

@@ -1,17 +1,18 @@
 /**
  * The first-run tutorial (SPEC 11).
  *
- * Three prompts, each in front of the obstacle it is about. The slide holds
- * still until the player makes the move, so a first-time player cannot crash
- * into the thing they are being taught to get past. It is skippable, and once
- * it is finished it never comes back.
+ * Three prompts, each in front of the obstacle it is about. The slide slows
+ * to a stop just far enough out that the move, made then, carries the player
+ * cleanly past. Nothing can hurt the player anywhere on the tutorial's track,
+ * so a first-time player cannot crash into the thing they are being taught to
+ * get past. It is skippable, and once it is finished it never comes back.
  *
  * Pure logic, no DOM. The prompts themselves are words in src/ui/strings.ts.
  */
 
 import { TUTORIAL } from '../config';
 import type { MoveAction } from './input-actions';
-import { TUTORIAL_STEP_POSITIONS } from './chunks/tutorial';
+import { TUTORIAL_STEP_POSITIONS, TUTORIAL_TRACK_END } from './chunks/tutorial';
 
 export type TutorialStepId = 'move' | 'jump' | 'slide';
 
@@ -36,10 +37,22 @@ export interface TutorialState {
   done: boolean;
   /** True while the slide is held, waiting for the player to make the move. */
   waiting: boolean;
+  /**
+   * Nothing can hurt the player before this distance, in units: the end of
+   * the tutorial's track, or 0 for a run without one. It holds even once the
+   * last move is made or the tutorial is skipped, until the lessons' own
+   * obstacles are behind the player.
+   */
+  readonly safeUntil: number;
 }
 
 export function createTutorial(enabled: boolean): TutorialState {
-  return { step: 0, done: !enabled, waiting: false };
+  return { step: 0, done: !enabled, waiting: false, safeUntil: enabled ? TUTORIAL_TRACK_END : 0 };
+}
+
+/** Whether the tutorial is still keeping the player from harm (SPEC 11). */
+export function tutorialProtects(state: TutorialState, distance: number): boolean {
+  return !state.done || distance < state.safeUntil;
 }
 
 /** The step the player is on, or null once the tutorial is over. */
@@ -101,9 +114,16 @@ export function skipTutorial(state: TutorialState): void {
 /**
  * How fast the slide should move, as a fraction of normal.
  *
- * While a prompt is waiting the slide creeps rather than stopping dead, so
- * the game still looks alive and the obstacle keeps drifting closer.
+ * While a prompt is waiting the slide drops to a creep and then eases to a
+ * stop `stopDistance` in front of the obstacle, so however long the player
+ * takes to read the prompt, the move they make lands them past it.
+ *
+ * @param distance how far the player has travelled, in units
  */
-export function tutorialSpeedFactor(state: TutorialState): number {
-  return state.waiting ? TUTORIAL.holdSpeedFactor : 1;
+export function tutorialSpeedFactor(state: TutorialState, distance: number): number {
+  const step = currentStep(state);
+  if (!state.waiting || step === null) return 1;
+  const room = step.atS - TUTORIAL.stopDistance - distance;
+  const span = TUTORIAL.holdDistance - TUTORIAL.stopDistance;
+  return TUTORIAL.holdSpeedFactor * Math.min(Math.max(room / span, 0), 1);
 }
