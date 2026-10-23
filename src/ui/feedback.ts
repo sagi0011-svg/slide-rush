@@ -10,8 +10,8 @@
  *    what an iPhone player actually gets. The camera shake from SPEC 7 is the
  *    third part of the same feedback and lives in the render layer.
  *
- * Sound joins them in M7, and the mute setting from SPEC 10 will switch all of
- * this off together.
+ * Sound is the fourth part, and lives in src/audio/. The mute setting from
+ * SPEC 10 is about sound only: a muted player still feels and sees a hit.
  */
 
 import { FEEDBACK } from '../config';

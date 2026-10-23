@@ -33,6 +33,7 @@ import { displayScore } from './game/scoring';
 import { createInputSource } from './input';
 import { createRenderer, type Frame, type Renderer } from './render/scene';
 import { frameAlpha, lerp } from './render/interpolate';
+import { createAudioManager } from './audio/manager';
 import { createDebugOverlay, isDebugEnabled } from './debug/overlay';
 import { createFeedback } from './ui/feedback';
 import { createHud } from './ui/hud';
@@ -81,9 +82,15 @@ function boot(): void {
 
   const input = createInputSource(canvas);
   const feedback = createFeedback(document.getElementById('flash'));
-  // Browsers refuse to vibrate until the player has touched the page, and
-  // complain loudly about every attempt before then.
-  const unlockFeedback = (): void => feedback.unlock();
+  const audio = createAudioManager();
+  audio.setMuted(save.data.muted);
+  audio.prepare();
+  // Browsers refuse to vibrate or play sound until the player has touched the
+  // page, and complain loudly about every attempt before then (SPEC 12).
+  const unlockFeedback = (): void => {
+    feedback.unlock();
+    audio.unlock();
+  };
   window.addEventListener('pointerdown', unlockFeedback, { once: true });
   window.addEventListener('keydown', unlockFeedback, { once: true });
 
@@ -124,12 +131,15 @@ function boot(): void {
       lastStumbles = 0;
       wasDead = false;
       stepper.reset();
+      // A fresh run starts in silence: its counters all begin again at zero.
+      audio.resetRun(state);
     }
     // Keeping the run's own pause in step means its clock never runs on
     // behind a screen.
     state.paused = flow.phase !== 'playing';
     screens.show(flow.phase);
     screens.setBestScore(save.data.bestScore);
+    audio.setPhase(flow.phase);
   };
 
   const screens = createScreens({
@@ -138,17 +148,23 @@ function boot(): void {
       const muted = !save.data.muted;
       save.update({ muted });
       screens.setMuted(muted);
-      // There is nothing to silence until the sound manager arrives in M7.
+      audio.setMuted(muted);
+      // Sound coming back on says so, out loud.
+      if (!muted) audio.play('uiTap');
     },
     onSkipTutorial() {
       skipTutorial(state.tutorial);
       save.update({ tutorialSeen: true });
+    },
+    onTap() {
+      audio.play('uiTap');
     },
   });
 
   screens.show(flow.phase);
   screens.setBestScore(save.data.bestScore);
   screens.setMuted(save.data.muted);
+  audio.setPhase(flow.phase);
   state.paused = true;
 
   const onResize = (): void => renderer.resize();
@@ -158,6 +174,8 @@ function boot(): void {
   // Pause when the tab or app goes away, and never try to catch up the lost
   // time when it comes back (SPEC 11).
   document.addEventListener('visibilitychange', () => {
+    // Sound stops dead rather than playing to an empty room.
+    audio.setHidden(document.hidden);
     if (document.hidden) {
       handleEvent('lostFocus');
     } else {
@@ -210,6 +228,9 @@ function boot(): void {
 
     if (state.stumbles > lastStumbles) feedback.play('stumble');
     lastStumbles = state.stumbles;
+
+    // Everything the run earned a sound for this frame (SPEC 12).
+    audio.observe(state);
 
     // Death: once the beat has played out, show the score (SPEC 11).
     if (flow.phase === 'playing' && deathBeatOver(state)) {

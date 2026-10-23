@@ -69,6 +69,8 @@ export interface ScreensHandlers {
   onToggleSound(): void;
   /** Called by Skip on the tutorial. */
   onSkipTutorial(): void;
+  /** Called by every button, so a tap can be heard (SPEC 12). */
+  onTap(): void;
 }
 
 export function createScreens(handlers: ScreensHandlers): Screens {
@@ -90,11 +92,18 @@ export function createScreens(handlers: ScreensHandlers): Screens {
   setText('tutorial-skip', STRINGS.skip);
 
   for (const [id, event] of BUTTONS) {
-    byId(id)?.addEventListener('click', () => handlers.onEvent(event));
+    byId(id)?.addEventListener('click', () => {
+      handlers.onTap();
+      handlers.onEvent(event);
+    });
   }
+  // The sound button says so itself, by turning the sound on.
   byId('start-sound')?.addEventListener('click', () => handlers.onToggleSound());
   byId('paused-sound')?.addEventListener('click', () => handlers.onToggleSound());
-  byId('tutorial-skip')?.addEventListener('click', () => handlers.onSkipTutorial());
+  byId('tutorial-skip')?.addEventListener('click', () => {
+    handlers.onTap();
+    handlers.onSkipTutorial();
+  });
 
   const tutorial = byId('tutorial');
   const pauseButton = byId('pause-button');
