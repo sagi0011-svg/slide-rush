@@ -26,6 +26,7 @@ export const TIER1_CHUNKS: readonly Chunk[] = [
     // The first arch: duck under it, or go round. The coins stay low through
     // it, which is the hint to slide.
     placements: [
+      pickupSlot(-1, 30),
       { type: 'highObstacle', lane: 0, z: 12 },
       { type: 'lowMine', lane: 1, z: 28 },
       ...low(0, 10, 16),
@@ -81,6 +82,7 @@ export const TIER1_CHUNKS: readonly Chunk[] = [
     length: LENGTH,
     // Both edges in turn; the middle stays clear all the way through.
     placements: [
+      pickupSlot(0, 20),
       { type: 'highObstacle', lane: -1, z: 12 },
       { type: 'highObstacle', lane: 1, z: 28 },
       ...line(0, 6, 34),
@@ -92,6 +94,7 @@ export const TIER1_CHUNKS: readonly Chunk[] = [
     maxTier: 3,
     length: LENGTH,
     placements: [
+      pickupSlot(-1, 16),
       { type: 'fullBlocker', lane: 1, z: 12 },
       { type: 'highObstacle', lane: 0, z: 28 },
       ...line(-1, 6, 22),
@@ -104,6 +107,7 @@ export const TIER1_CHUNKS: readonly Chunk[] = [
     maxTier: 3,
     length: LENGTH,
     placements: [
+      pickupSlot(0, 20),
       { type: 'lowMine', lane: -1, z: 12 },
       { type: 'highObstacle', lane: 1, z: 28 },
       ...line(0, 6, 34),
@@ -129,6 +133,11 @@ export const TIER1_CHUNKS: readonly Chunk[] = [
     maxTier: 3,
     length: LENGTH,
     // One thing only: the gentle chunk this tier falls back on around a boost.
-    placements: [{ type: 'highObstacle', lane: 0, z: 22 }, ...low(0, 18, 28), ...line(1, 6, 14)],
+    placements: [
+      pickupSlot(1, 10),
+      { type: 'highObstacle', lane: 0, z: 22 },
+      ...low(0, 18, 28),
+      ...line(1, 6, 14),
+    ],
   },
 ];

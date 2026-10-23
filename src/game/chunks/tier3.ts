@@ -27,6 +27,7 @@ export const TIER3_CHUNKS: readonly Chunk[] = [
     length: LENGTH,
     // A gate with one way through, and nothing else to think about.
     placements: [
+      pickupSlot(1, 16),
       { type: 'fullBlocker', lane: -1, z: 26 },
       { type: 'fullBlocker', lane: 0, z: 26 },
       ...line(1, 6, 34),
@@ -39,6 +40,7 @@ export const TIER3_CHUNKS: readonly Chunk[] = [
     length: LENGTH,
     // The same, the other way round.
     placements: [
+      pickupSlot(-1, 16),
       { type: 'fullBlocker', lane: 1, z: 26 },
       { type: 'fullBlocker', lane: 0, z: 26 },
       ...line(-1, 6, 34),
@@ -128,6 +130,7 @@ export const TIER3_CHUNKS: readonly Chunk[] = [
     maxTier: 3,
     length: LENGTH,
     placements: [
+      pickupSlot(0, 20),
       { type: 'lowMine', lane: -1, z: 12 },
       { type: 'highObstacle', lane: 1, z: 28 },
       ...line(0, 6, 34),
@@ -139,6 +142,7 @@ export const TIER3_CHUNKS: readonly Chunk[] = [
     maxTier: 3,
     length: LENGTH,
     placements: [
+      pickupSlot(0, 20),
       { type: 'fullBlocker', lane: -1, z: 12 },
       { type: 'softObstacle', lane: 1, z: 28 },
       ...line(0, 6, 34),

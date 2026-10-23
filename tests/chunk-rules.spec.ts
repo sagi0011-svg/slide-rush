@@ -269,3 +269,36 @@ describe('a four minute run (SPEC 5)', () => {
     expect(density(2)).toBeGreaterThan(density(0));
   });
 });
+
+describe('room for power-ups (SPEC 9)', () => {
+  it('leaves a pickup slot in at least half the chunks of every tier', () => {
+    // A pickup that is due waits for the next chunk with a slot, so too few
+    // slots would quietly stretch the wait far past the spec's interval.
+    for (let tier = 0; tier <= MAX_TIER; tier += 1) {
+      const pool = chunksForTier(tier);
+      const withSlot = pool.filter((chunk) =>
+        chunk.placements.some((placement) => placement.type === 'pickup'),
+      );
+      expect(withSlot.length * 2, `tier ${tier}`).toBeGreaterThanOrEqual(pool.length);
+    }
+  });
+
+  it('never puts more than one slot in a chunk', () => {
+    for (const chunk of CHUNK_LIBRARY) {
+      const slots = chunk.placements.filter((placement) => placement.type === 'pickup');
+      expect(slots.length, chunk.id).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('never hides a slot on top of an obstacle', () => {
+    // Reaching for a power-up must never mean running into something.
+    for (const chunk of CHUNK_LIBRARY) {
+      for (const slot of chunk.placements.filter((placement) => placement.type === 'pickup')) {
+        for (const obstacle of chunkObstacles(chunk, 0)) {
+          if (obstacle.lane !== slot.lane) continue;
+          expect(Math.abs(obstacle.s - slot.z), chunk.id).toBeGreaterThanOrEqual(4);
+        }
+      }
+    }
+  });
+});

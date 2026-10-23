@@ -50,6 +50,7 @@ export const TIER2_CHUNKS: readonly Chunk[] = [
     length: LENGTH,
     // Two lanes shut at once: there is exactly one way through.
     placements: [
+      pickupSlot(-1, 16),
       { type: 'fullBlocker', lane: 0, z: 26 },
       { type: 'fullBlocker', lane: 1, z: 26 },
       ...line(-1, 6, 34),
@@ -98,6 +99,7 @@ export const TIER2_CHUNKS: readonly Chunk[] = [
     maxTier: 3,
     length: LENGTH,
     placements: [
+      pickupSlot(0, 20),
       { type: 'fullBlocker', lane: -1, z: 12 },
       { type: 'fullBlocker', lane: 1, z: 28 },
       ...line(0, 6, 34),
@@ -110,6 +112,7 @@ export const TIER2_CHUNKS: readonly Chunk[] = [
     length: LENGTH,
     // The arch and the mine share a lane: duck then jump, or step across.
     placements: [
+      pickupSlot(0, 20),
       { type: 'highObstacle', lane: 1, z: 12 },
       { type: 'lowMine', lane: 1, z: 28 },
       ...line(0, 6, 34),
@@ -121,6 +124,7 @@ export const TIER2_CHUNKS: readonly Chunk[] = [
     maxTier: 3,
     length: LENGTH,
     placements: [
+      pickupSlot(0, 20),
       { type: 'softObstacle', lane: -1, z: 12 },
       { type: 'softObstacle', lane: 1, z: 28 },
       ...line(0, 6, 34),
@@ -132,6 +136,6 @@ export const TIER2_CHUNKS: readonly Chunk[] = [
     maxTier: 3,
     length: LENGTH,
     // One thing only, but late enough to need noticing.
-    placements: [{ type: 'fullBlocker', lane: 1, z: 24 }, ...line(-1, 8, 34)],
+    placements: [pickupSlot(-1, 20), { type: 'fullBlocker', lane: 1, z: 24 }, ...line(-1, 8, 34)],
   },
 ];

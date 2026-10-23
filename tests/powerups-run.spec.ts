@@ -317,3 +317,31 @@ describe('pickups reaching the track', () => {
     }
   });
 });
+
+describe('how often power-ups show up (SPEC 9)', () => {
+  it('puts one on the track every 10 to 15 seconds or so, all run long', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const state = createRunState(seed);
+      const appeared: number[] = [];
+      let wasOnTrack = false;
+      for (let i = 0; i < 60 * 240; i += 1) {
+        // Keep the player alive for the whole four minutes.
+        if (i % 240 === 0) grantPowerUp(state, 'boost');
+        stepRun(state, DT);
+        const onTrack = state.spawner.pickup.active;
+        if (onTrack && !wasOnTrack) appeared.push(state.elapsed);
+        wasOnTrack = onTrack;
+        if (state.phase === 'dead') break;
+      }
+
+      // Waiting for a chunk with a slot may add a few seconds, never many.
+      const slack = 5;
+      expect(appeared[0], `seed ${seed}`).toBeLessThan(POWERUPS.spawnIntervalMax + slack);
+      for (let i = 1; i < appeared.length; i += 1) {
+        const gap = (appeared[i] as number) - (appeared[i - 1] as number);
+        expect(gap, `seed ${seed}`).toBeLessThan(POWERUPS.spawnIntervalMax + slack);
+      }
+      expect(appeared.length, `seed ${seed}`).toBeGreaterThanOrEqual(15);
+    }
+  });
+});

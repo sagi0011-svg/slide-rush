@@ -84,6 +84,7 @@ export const WARMUP_CHUNKS: readonly Chunk[] = [
     length: LENGTH,
     // Leave the middle for the wall, then deal with the mine on the left.
     placements: [
+      pickupSlot(1, 20),
       { type: 'fullBlocker', lane: 0, z: 12 },
       { type: 'lowMine', lane: -1, z: 28 },
       ...line(1, 6, 34),
@@ -96,6 +97,7 @@ export const WARMUP_CHUNKS: readonly Chunk[] = [
     length: LENGTH,
     // Jump the mine, then move off the lane before the wall.
     placements: [
+      pickupSlot(-1, 32),
       { type: 'lowMine', lane: 0, z: 12 },
       { type: 'fullBlocker', lane: 0, z: 28 },
       ...arc(0, 12),
@@ -108,6 +110,7 @@ export const WARMUP_CHUNKS: readonly Chunk[] = [
     maxTier: 3,
     length: LENGTH,
     placements: [
+      pickupSlot(0, 8),
       { type: 'fullBlocker', lane: 1, z: 12 },
       { type: 'fullBlocker', lane: 0, z: 28 },
       ...line(0, 4, 16),
@@ -120,6 +123,7 @@ export const WARMUP_CHUNKS: readonly Chunk[] = [
     maxTier: 1,
     length: LENGTH,
     placements: [
+      pickupSlot(0, 20),
       { type: 'fullBlocker', lane: -1, z: 12 },
       { type: 'lowMine', lane: 1, z: 28 },
       ...line(0, 5, 35),
@@ -132,6 +136,7 @@ export const WARMUP_CHUNKS: readonly Chunk[] = [
     length: LENGTH,
     // Three mines down one lane, with plenty of room between them.
     placements: [
+      pickupSlot(0, 20),
       { type: 'lowMine', lane: 1, z: 8 },
       { type: 'lowMine', lane: 1, z: 21 },
       { type: 'lowMine', lane: 1, z: 34 },

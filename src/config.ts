@@ -234,8 +234,8 @@ export const COINS = {
 /** Power-ups (SPEC 9). */
 export const POWERUPS = {
   /** Random gap between pickups, in seconds. */
-  spawnIntervalMin: 20,
-  spawnIntervalMax: 30,
+  spawnIntervalMin: 10,
+  spawnIntervalMax: 15,
   shield: {
     /** Seconds the shield lasts if it is never hit. */
     duration: 10,

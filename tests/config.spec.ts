@@ -92,8 +92,8 @@ describe('config matches the spec', () => {
   });
 
   it('uses the power-up numbers from SPEC 9', () => {
-    expect(POWERUPS.spawnIntervalMin).toBe(20);
-    expect(POWERUPS.spawnIntervalMax).toBe(30);
+    expect(POWERUPS.spawnIntervalMin).toBe(10);
+    expect(POWERUPS.spawnIntervalMax).toBe(15);
     expect(POWERUPS.spawnIntervalMin).toBeLessThan(POWERUPS.spawnIntervalMax);
     expect(POWERUPS.shield.duration).toBe(10);
     expect(POWERUPS.shield.graceAfterHit).toBe(1);
