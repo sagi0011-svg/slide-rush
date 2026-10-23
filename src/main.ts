@@ -82,6 +82,7 @@ function boot(): void {
 
   const input = createInputSource(canvas);
   const feedback = createFeedback(document.getElementById('flash'));
+  feedback.setEnabled(!save.data.effectsOff);
   const audio = createAudioManager();
   audio.setMuted(save.data.muted);
   audio.prepare();
@@ -116,6 +117,7 @@ function boot(): void {
     boosting: false,
     elapsed: 0,
     shakeTrigger: 0,
+    shakeEnabled: feedback.enabled,
     dead: false,
     frameSeconds: 0,
   };
@@ -152,6 +154,14 @@ function boot(): void {
       // Sound coming back on says so, out loud.
       if (!muted) audio.play('uiTap');
     },
+    onToggleEffects() {
+      const effectsOff = !save.data.effectsOff;
+      save.update({ effectsOff });
+      screens.setEffectsOff(effectsOff);
+      feedback.setEnabled(!effectsOff);
+      // Coming back on, it shows itself: one small buzz and flash.
+      if (!effectsOff) feedback.play('stumble');
+    },
     onSkipTutorial() {
       skipTutorial(state.tutorial);
       save.update({ tutorialSeen: true });
@@ -164,6 +174,7 @@ function boot(): void {
   screens.show(flow.phase);
   screens.setBestScore(save.data.bestScore);
   screens.setMuted(save.data.muted);
+  screens.setEffectsOff(save.data.effectsOff);
   audio.setPhase(flow.phase);
   state.paused = true;
 
@@ -262,6 +273,7 @@ function boot(): void {
     frame.shielded = isActive(state.powerUps, 'shield');
     frame.boosting = isActive(state.powerUps, 'boost');
     frame.shakeTrigger = state.shakeTrigger;
+    frame.shakeEnabled = feedback.enabled;
     frame.dead = state.phase === 'dead';
     frame.frameSeconds = frameSeconds;
     renderer.draw(frame);

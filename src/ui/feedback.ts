@@ -12,6 +12,8 @@
  *
  * Sound is the fourth part, and lives in src/audio/. The mute setting from
  * SPEC 10 is about sound only: a muted player still feels and sees a hit.
+ * Vibration, the flash and the camera shake have a setting of their own, the
+ * shake-and-flash button (SPEC 11).
  */
 
 import { FEEDBACK } from '../config';
@@ -31,7 +33,7 @@ export interface Feedback {
   unlock(): void;
   /** Plays the feedback for an event. */
   play(event: FeedbackEvent): void;
-  /** Turns vibration and flashing off or on; the mute setting uses this. */
+  /** Turns vibration and flashing off or on; the shake-and-flash button uses this. */
   setEnabled(enabled: boolean): void;
   readonly enabled: boolean;
 }

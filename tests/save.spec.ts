@@ -47,6 +47,7 @@ describe('parseSave (SPEC 10)', () => {
       totalCoins: 56,
       tutorialSeen: true,
       muted: true,
+      effectsOff: true,
     };
     expect(parseSave(JSON.stringify(data))).toEqual(data);
   });
@@ -59,12 +60,19 @@ describe('parseSave (SPEC 10)', () => {
 
   it('throws away values of the wrong shape, keeping the good ones', () => {
     const parsed = parseSave(
-      JSON.stringify({ bestScore: 'lots', totalCoins: 7, tutorialSeen: 'yes', muted: true }),
+      JSON.stringify({
+        bestScore: 'lots',
+        totalCoins: 7,
+        tutorialSeen: 'yes',
+        muted: true,
+        effectsOff: 'off',
+      }),
     );
     expect(parsed.bestScore).toBe(0);
     expect(parsed.totalCoins).toBe(7);
     expect(parsed.tutorialSeen).toBe(false);
     expect(parsed.muted).toBe(true);
+    expect(parsed.effectsOff).toBe(false);
   });
 
   it('refuses impossible numbers', () => {
@@ -127,9 +135,10 @@ describe('the save store', () => {
 
   it('leaves the other settings alone when a run ends', () => {
     const store = createSaveStore(fakeStorage());
-    store.update({ muted: true, tutorialSeen: true });
+    store.update({ muted: true, tutorialSeen: true, effectsOff: true });
     store.finishRun(400, 2);
     expect(store.data.muted).toBe(true);
+    expect(store.data.effectsOff).toBe(true);
     expect(store.data.tutorialSeen).toBe(true);
   });
 

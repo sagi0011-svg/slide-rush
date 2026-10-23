@@ -42,6 +42,8 @@ export interface Frame {
   elapsed: number;
   /** Counts up on every stumble; a change sets the camera shaking. */
   shakeTrigger: number;
+  /** False when the player has turned shake and flash off: no shaking at all. */
+  shakeEnabled: boolean;
   /** True once the run has ended, for the death beat. */
   dead: boolean;
   /** Real seconds since the last frame, for camera damping. */
@@ -115,10 +117,12 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       // A stumble shakes the camera for a moment (SPEC 7). The counter only
       // ever climbs during a run, so a drop means a new run started — which
       // must not set the camera shaking.
-      if (frame.shakeTrigger > lastShakeTrigger) {
+      if (frame.shakeTrigger > lastShakeTrigger && frame.shakeEnabled) {
         shake = CAMERA.shakeTime;
       }
       lastShakeTrigger = frame.shakeTrigger;
+      // Turned off mid-shake: it stops there and then.
+      if (!frame.shakeEnabled) shake = 0;
       if (shake > 0) shake = Math.max(0, shake - frame.frameSeconds);
 
       // A refused lane change nudges the player against the wall and back.

@@ -27,6 +27,8 @@ export interface Screens {
   setBestScore(best: number): void;
   /** Updates both sound buttons to match the setting. */
   setMuted(muted: boolean): void;
+  /** Updates both shake-and-flash buttons to match the setting. */
+  setEffectsOff(off: boolean): void;
   /** Shows a tutorial prompt, or nothing when `step` is null (SPEC 11). */
   setTutorialPrompt(step: TutorialStepId | null, usingKeyboard: boolean): void;
 }
@@ -67,6 +69,8 @@ export interface ScreensHandlers {
   onEvent(event: FlowEvent): void;
   /** Called by the sound button. */
   onToggleSound(): void;
+  /** Called by the shake-and-flash button. */
+  onToggleEffects(): void;
   /** Called by Skip on the tutorial. */
   onSkipTutorial(): void;
   /** Called by every button, so a tap can be heard (SPEC 12). */
@@ -100,6 +104,12 @@ export function createScreens(handlers: ScreensHandlers): Screens {
   // The sound button says so itself, by turning the sound on.
   byId('start-sound')?.addEventListener('click', () => handlers.onToggleSound());
   byId('paused-sound')?.addEventListener('click', () => handlers.onToggleSound());
+  for (const id of ['start-effects', 'paused-effects']) {
+    byId(id)?.addEventListener('click', () => {
+      handlers.onTap();
+      handlers.onToggleEffects();
+    });
+  }
   byId('tutorial-skip')?.addEventListener('click', () => {
     handlers.onTap();
     handlers.onSkipTutorial();
@@ -142,6 +152,12 @@ export function createScreens(handlers: ScreensHandlers): Screens {
       const label = muted ? STRINGS.soundOff : STRINGS.soundOn;
       setText('start-sound', label);
       setText('paused-sound', label);
+    },
+
+    setEffectsOff(off) {
+      const label = off ? STRINGS.effectsOff : STRINGS.effectsOn;
+      setText('start-effects', label);
+      setText('paused-effects', label);
     },
 
     setTutorialPrompt(step, usingKeyboard) {

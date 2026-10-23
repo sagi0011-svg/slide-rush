@@ -2,7 +2,8 @@
  * What survives between runs (SPEC 10).
  *
  * Best score, every coin ever collected (for the shop, later), whether the
- * tutorial has been seen and whether sound is muted.
+ * tutorial has been seen, whether sound is muted and whether the shake and
+ * flash of a hit are turned off.
  *
  * The storage itself is handed in rather than reached for, so the rules can be
  * tested without a browser. Nothing here may ever throw: private browsing,
@@ -21,6 +22,8 @@ export interface SaveData {
   tutorialSeen: boolean;
   /** Whether sound is off (M7). */
   muted: boolean;
+  /** Whether vibration, the screen flash and the camera shake are off. */
+  effectsOff: boolean;
 }
 
 /** The little bit of localStorage this needs; easy to stand in for in a test. */
@@ -30,7 +33,7 @@ export interface StorageLike {
 }
 
 export function defaultSave(): SaveData {
-  return { bestScore: 0, totalCoins: 0, tutorialSeen: false, muted: false };
+  return { bestScore: 0, totalCoins: 0, tutorialSeen: false, muted: false, effectsOff: false };
 }
 
 function wholeNumber(value: unknown, fallback: number): number {
@@ -65,6 +68,7 @@ export function parseSave(raw: string | null): SaveData {
     totalCoins: wholeNumber(data['totalCoins'], fresh.totalCoins),
     tutorialSeen: flag(data['tutorialSeen'], fresh.tutorialSeen),
     muted: flag(data['muted'], fresh.muted),
+    effectsOff: flag(data['effectsOff'], fresh.effectsOff),
   };
 }
 

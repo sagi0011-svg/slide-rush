@@ -84,15 +84,16 @@ Collected by touching a floating pickup on the track. A pickup spawns roughly ev
 - Distance score: +1 point per unit travelled × multiplier.
 - Coins: 10 points × multiplier.
 - **Multiplier:** starts at x1, +1 every 30 s without a stumble, max x5. A stumble resets it to x1. (Shield absorbing a hit does **not** reset it.)
-- Saved locally (localStorage, versioned key, safe if storage is unavailable): **best score**, **total coins ever** (for the future shop), **tutorial seen**, **mute setting**.
+- Saved locally (localStorage, versioned key, safe if storage is unavailable): **best score**, **total coins ever** (for the future shop), **tutorial seen**, **mute setting**, **shake & flash setting**.
 
 ## 11. Screens and flow
-1. **Start screen:** title, Play, best score, mute toggle.
+1. **Start screen:** title, Play, best score, mute toggle, shake & flash toggle.
 2. **First-run tutorial:** the first run starts with 3 gentle guided prompts (swipe to move, swipe up to jump, swipe down to slide), each waiting for the correct action in front of a matching easy obstacle. Skippable. Never shown again once completed.
    - "Waiting" means the slide slows to a crawl in front of the obstacle until the right move is made, and nothing can hurt the player until the tutorial is over. A first-time player cannot be killed by the thing they are being taught to get past.
    - The prompts name keys instead of swipes once the player has touched the keyboard.
 3. **In-game HUD:** score, coin count, multiplier, active power-up timers, pause button. Top of screen, safe-area aware (notches).
-4. **Pause:** Resume, Restart, mute. Game auto-pauses when the tab/app loses focus.
+4. **Pause:** Resume, Restart, mute, shake & flash. Game auto-pauses when the tab/app loses focus.
+   - **Shake & flash** turns off the hit vibration, the screen flash and the camera shake together, separately from sound. It is saved like the mute setting. Turning it back on gives one small buzz and flash, so the player can feel what they turned on.
 5. **Game over:** short slow-mo death beat (~0.6 s), then score, coins this run, best score with a "New best!" badge, big Play Again (instant restart, no loading), Home.
    - During the beat the world keeps moving, far slower, so the crash reads as a moment rather than a freeze. Nothing is scored and nothing else can be hit.
 - No revive/continue in the MVP.

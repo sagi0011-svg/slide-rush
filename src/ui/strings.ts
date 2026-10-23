@@ -27,6 +27,8 @@ export const STRINGS = {
 
   soundOn: 'Sound on',
   soundOff: 'Sound off',
+  effectsOn: 'Shake & flash on',
+  effectsOff: 'Shake & flash off',
 
   /** Short labels for the power-up timers on the HUD (SPEC 9). */
   powerUps: {
