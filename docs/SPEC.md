@@ -68,7 +68,7 @@ Source of truth for rules and numbers. All numbers are starting values and live 
 - Each coin = 10 points × current multiplier. Also adds 1 to the run coin count.
 
 ## 9. Power-ups
-Collected by touching a floating pickup on the track. A pickup spawns roughly every **10–15 s** (only in chunk pickup slots, never two on screen). Type is random, equal weights.
+Collected by touching a floating pickup on the track. A pickup spawns roughly every **13–18 s** (only in chunk pickup slots, never two on screen). Type is random, equal weights.
 - At least half the chunks of every tier carry a pickup slot, and a slot never sits on an obstacle in its lane, so a pickup that is due appears within a few seconds rather than waiting for a rare slot.
 
 | Power-up | Color | Duration | Effect |
