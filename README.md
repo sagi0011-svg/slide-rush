@@ -2,7 +2,7 @@
 
 An endless runner set on a water-park slide, in the spirit of Subway Surfers. Slide down, switch between 3 lanes, jump over mines, duck under arches, grab coins and power-ups, and see how far you get.
 
-**Status:** M8 done, waiting for phone QA before tagging `v0.1.0`. Full debug mode, a performance pass, Three.js in its own cached file, and sound that starts properly on phones.
+**Status:** `v0.1.0` — the MVP is complete and checked on phones (Chrome and Safari). Placeholder art throughout; the design & art pass comes next.
 
 > Hit feedback: the phone vibrates on a trip or a crash where the browser
 > allows it. Safari on iOS has never supported the Vibration API, and every
