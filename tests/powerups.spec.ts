@@ -338,3 +338,49 @@ describe('touching a pickup (SPEC 9)', () => {
     }
   });
 });
+
+describe('counters the sound layer reads (SPEC 12)', () => {
+  it('starts both counters at zero', () => {
+    const state = createPowerUps();
+    expect(state.grants).toBe(0);
+    expect(state.expiries).toBe(0);
+  });
+
+  it('counts every pickup, including one that only resets a timer', () => {
+    const state = createPowerUps();
+    grant(state, 'shield');
+    expect(state.grants).toBe(1);
+    run(state, 2);
+    grant(state, 'shield');
+    expect(state.grants).toBe(2);
+    grant(state, 'magnet');
+    expect(state.grants).toBe(3);
+  });
+
+  it('counts a power-up that runs out, once', () => {
+    const state = createPowerUps();
+    grant(state, 'boost');
+    run(state, POWERUPS.boost.duration + 0.5);
+    expect(isActive(state, 'boost')).toBe(false);
+    expect(state.expiries).toBe(1);
+    run(state, 2);
+    expect(state.expiries).toBe(1);
+  });
+
+  it('counts each one separately when they run out together', () => {
+    const state = createPowerUps();
+    grant(state, 'shield');
+    grant(state, 'magnet');
+    run(state, POWERUPS.shield.duration + 0.2);
+    expect(state.expiries).toBe(2);
+  });
+
+  it('does not count a shield spent on a hit as running out', () => {
+    const state = createPowerUps();
+    grant(state, 'shield');
+    expect(absorbWithShield(state)).toBe(true);
+    run(state, POWERUPS.shield.duration + 1);
+    // The pop is its own sound, counted on the run itself (SPEC 9).
+    expect(state.expiries).toBe(0);
+  });
+});

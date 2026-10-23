@@ -32,6 +32,14 @@ export interface PowerUpState {
    * track easy (SPEC 9).
    */
   safeWindow: number;
+  /**
+   * How many power-ups have been granted, and how many have run out on their
+   * own. They only ever count up, so the sound layer can tell what happened by
+   * comparing them with the last frame (SPEC 12). A shield spent on a hit is
+   * not an expiry — that is a shield pop, counted on the run itself.
+   */
+  grants: number;
+  expiries: number;
 }
 
 export function createPowerUps(): PowerUpState {
@@ -43,6 +51,8 @@ export function createPowerUps(): PowerUpState {
     boostEaseOut: 0,
     boostEaseFrom: 0,
     safeWindow: 0,
+    grants: 0,
+    expiries: 0,
   };
 }
 
@@ -78,6 +88,7 @@ export function remainingFraction(state: PowerUpState, type: PowerUpType): numbe
  */
 export function grant(state: PowerUpState, type: PowerUpType): void {
   state[type] = durationOf(type);
+  state.grants += 1;
   if (type === 'boost') {
     // A fresh boost cancels the easing from a previous one.
     state.boostEaseOut = 0;
@@ -145,7 +156,10 @@ export function stepPowerUps(state: PowerUpState, dt: number, baseSpeed: number)
   const speedBefore = speedWithPowerUps(state, baseSpeed);
 
   for (const type of POWERUP_TYPES) {
-    if (state[type] > 0) state[type] = Math.max(0, state[type] - dt);
+    if (state[type] <= 0) continue;
+    state[type] = Math.max(0, state[type] - dt);
+    // Ran out by itself, rather than being spent on a hit.
+    if (state[type] === 0) state.expiries += 1;
   }
 
   if (boostWasRunning && state.boost === 0) {

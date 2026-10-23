@@ -363,3 +363,67 @@ describe('determinism', () => {
     expect(a).toEqual(b);
   });
 });
+
+describe('counters the sound layer reads (SPEC 12)', () => {
+  it('starts every counter at zero', () => {
+    const player = createPlayer();
+    expect(player.jumps).toBe(0);
+    expect(player.slides).toBe(0);
+    expect(player.laneChanges).toBe(0);
+  });
+
+  it('counts a lane change only when the player actually moves', () => {
+    const player = createPlayer();
+    act(player, 'left', 0.2);
+    expect(player.laneChanges).toBe(1);
+    // Against the outside wall: a bump, not a lane change.
+    act(player, 'left', 0.2);
+    expect(player.laneChanges).toBe(1);
+    act(player, 'right', 0.2);
+    expect(player.laneChanges).toBe(2);
+  });
+
+  it('counts a jump once, however often it is asked for in mid-air', () => {
+    const player = createPlayer();
+    act(player, 'jump');
+    // Pressed again just before landing: it waits in the buffer (SPEC 3).
+    run(player, PLAYER.jumpTime - PLAYER.inputBufferTime / 2);
+    queueAction(player, 'jump');
+    queueAction(player, 'jump');
+    expect(player.jumps).toBe(1);
+    // The buffered jump fires on landing, and counts then — once.
+    run(player, PLAYER.inputBufferTime);
+    expect(player.jumps).toBe(2);
+  });
+
+  it('counts a slide when it starts, including the one after a mid-air drop', () => {
+    const player = createPlayer();
+    act(player, 'slide');
+    expect(player.slides).toBe(1);
+    // Asking again while sliding extends it rather than starting another.
+    queueAction(player, 'slide');
+    run(player, 0.1);
+    expect(player.slides).toBe(1);
+
+    run(player, PLAYER.slideTime);
+    act(player, 'jump');
+    act(player, 'slide');
+    expect(player.slides).toBe(1);
+    // Landing out of the drop goes straight into a slide, which is heard then.
+    run(player, PLAYER.jumpHeight / PLAYER.fastDropSpeed + 0.1);
+    expect(player.vertical).toBe('sliding');
+    expect(player.slides).toBe(2);
+  });
+
+  it('only ever counts up, so a frame can tell what happened by comparing', () => {
+    const player = createPlayer();
+    let last = 0;
+    const script: MoveAction[] = ['left', 'jump', 'slide', 'right', 'jump', 'left'];
+    for (const action of script) {
+      act(player, action, 0.4);
+      const total = player.jumps + player.slides + player.laneChanges;
+      expect(total).toBeGreaterThanOrEqual(last);
+      last = total;
+    }
+  });
+});

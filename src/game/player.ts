@@ -37,6 +37,15 @@ export interface PlayerState {
   bufferedAge: number;
   /** Edge-bump feedback, 1 right after a refused lane change, fading to 0. */
   bump: number;
+  /**
+   * How many jumps, slides and lane changes this player has started. They only
+   * ever count up, so the sound layer can tell what just happened by comparing
+   * them with the last frame, and the player needs to know nothing about sound
+   * (SPEC 12, the same trick as `shieldPops` on the run).
+   */
+  jumps: number;
+  slides: number;
+  laneChanges: number;
 }
 
 export function createPlayer(): PlayerState {
@@ -54,6 +63,9 @@ export function createPlayer(): PlayerState {
     buffered: null,
     bufferedAge: 0,
     bump: 0,
+    jumps: 0,
+    slides: 0,
+    laneChanges: 0,
   };
 }
 
@@ -103,6 +115,7 @@ function tryApply(player: PlayerState, action: MoveAction): boolean {
       player.laneFrom = player.laneOffset;
       player.laneTarget = next;
       player.laneT = 0;
+      player.laneChanges += 1;
       return true;
     }
 
@@ -113,6 +126,7 @@ function tryApply(player: PlayerState, action: MoveAction): boolean {
       player.vertical = 'jumping';
       player.verticalTimer = 0;
       player.fastDropping = false;
+      player.jumps += 1;
       return true;
     }
 
@@ -126,6 +140,7 @@ function tryApply(player: PlayerState, action: MoveAction): boolean {
       if (player.vertical === 'sliding') return false;
       player.vertical = 'sliding';
       player.verticalTimer = 0;
+      player.slides += 1;
       return true;
     }
   }
@@ -167,6 +182,7 @@ function stepVertical(player: PlayerState, dt: number): void {
           player.fastDropping = false;
           player.vertical = 'sliding';
           player.verticalTimer = 0;
+          player.slides += 1;
         }
         return;
       }
