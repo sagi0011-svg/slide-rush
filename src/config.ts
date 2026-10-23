@@ -7,14 +7,17 @@
  */
 
 /** Fixed-timestep simulation (SPEC 13 / CLAUDE.md rule 5). */
+/** Simulation ticks per second; `SIM.hz` and `SIM.dt` both come from it. */
+const SIM_HZ = 60;
+
 export const SIM = {
   /** Simulation ticks per second. Gameplay must behave identically at any frame rate. */
-  hz: 60,
+  hz: SIM_HZ,
   /**
-   * Seconds per simulation tick: 1 / hz. A plain number rather than worked
-   * out on every read, which would make a little garbage every tick.
+   * Seconds per simulation tick. A plain number rather than a getter, which
+   * would make a little garbage on every read, every tick.
    */
-  dt: 1 / 60,
+  dt: 1 / SIM_HZ,
   /** Never simulate more than this many ticks in one frame (after a tab stall). */
   maxTicksPerFrame: 5,
 } as const;
@@ -144,6 +147,12 @@ export const RENDER = {
   slowShare: 0.5,
   /** A frame longer than this is a stall or the tab returning: ignored. */
   ignoreFrameSeconds: 0.25,
+  /**
+   * A step down is kept only if the average frame got at least this much
+   * shorter (0.85 = 15% faster). Otherwise the pixels were not the problem —
+   * a battery-saver 30 fps cap, say — and the resolution goes back.
+   */
+  trialSpeedup: 0.85,
 } as const;
 
 /** Camera and presentation (SPEC 2). */
@@ -460,6 +469,8 @@ export const DEBUG = {
   speedScaleStep: 0.05,
   /** How far ahead hitboxes are drawn, in units; past this the fog hides them. */
   hitboxRange: 60,
+  /** And how far behind, for an obstacle just passed. */
+  hitboxRangeBehind: 15,
 } as const;
 
 /**

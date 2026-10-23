@@ -343,7 +343,7 @@ function boot(): void {
     frame.dead = state.phase === 'dead';
     frame.frameSeconds = frameSeconds;
     if (debug.enabled && showHitboxes) {
-      collectHitboxes(state, hitboxList);
+      collectHitboxes(state, hitboxList, frame.laneOffset, frame.height);
       frame.hitboxes = hitboxList;
     } else {
       frame.hitboxes = null;

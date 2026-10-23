@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEBUG, SIM, SPEED } from '../src/config';
+import { DEBUG, LANES, SIM, SPEED } from '../src/config';
 import {
   createDebugTweaks,
   debugTier,
@@ -142,7 +142,7 @@ describe('hitboxes', () => {
       (obstacle) =>
         obstacle.active &&
         obstacle.s - state.distance <= DEBUG.hitboxRange &&
-        obstacle.s - state.distance >= -DEBUG.hitboxRange / 4,
+        obstacle.s - state.distance >= -DEBUG.hitboxRangeBehind,
     );
     expect(list.count).toBe(visible.length);
     for (let i = 0; i < list.count; i += 1) {
@@ -151,6 +151,18 @@ describe('hitboxes', () => {
       expect(list.obstacles[i]).toEqual(obstacleBox(obstacle, createBox()));
       expect(list.deadly[i]).toBe(frontHitCost(obstacle.type) === 'death');
     }
+  });
+
+  it('follows the player as drawn between ticks, at the same size', () => {
+    const state = createRunState(1, WALL_AHEAD);
+    runFor(state, 1);
+    const list = createHitboxList();
+    const exact = playerBox(state.player, state.distance, createBox());
+    collectHitboxes(state, list, 0.4, 1.2);
+    expect(list.player.x).toBeCloseTo(0.4 * LANES.width, 9);
+    expect(list.player.minY).toBe(1.2);
+    expect(list.player.maxY - list.player.minY).toBeCloseTo(exact.maxY - exact.minY, 9);
+    expect(list.player.halfW).toBe(exact.halfW);
   });
 
   it('reuses its boxes rather than making new ones every frame', () => {

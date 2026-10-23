@@ -8,7 +8,7 @@
  * (CLAUDE.md rule 7).
  */
 
-import { DEBUG } from '../config';
+import { DEBUG, LANES } from '../config';
 import { playerBox } from './collisions';
 import { createBox, frontHitCost, obstacleBox, type Box } from './obstacles';
 import type { RunState } from './state';
@@ -30,15 +30,28 @@ export function createHitboxList(): HitboxList {
 /**
  * Fills the list with the player's box and every obstacle close enough to
  * see. The list only ever grows, and only until it is as big as the pool.
+ *
+ * The player is drawn between ticks (CLAUDE.md rule 5), so `laneOffset` and
+ * `height` can be the interpolated ones the mesh uses; the box then moves
+ * with the mesh instead of trailing it by a tick. Its size is the game's own.
  */
-export function collectHitboxes(state: RunState, list: HitboxList): void {
-  playerBox(state.player, state.distance, list.player);
+export function collectHitboxes(
+  state: RunState,
+  list: HitboxList,
+  laneOffset: number = state.player.laneOffset,
+  height: number = state.player.height,
+): void {
+  const player = playerBox(state.player, state.distance, list.player);
+  const tall = player.maxY - player.minY;
+  player.x = laneOffset * LANES.width;
+  player.minY = height;
+  player.maxY = height + tall;
 
   let count = 0;
   for (const obstacle of state.spawner.obstacles) {
     if (!obstacle.active) continue;
     const ahead = obstacle.s - state.distance;
-    if (ahead > DEBUG.hitboxRange || ahead < -DEBUG.hitboxRange / 4) continue;
+    if (ahead > DEBUG.hitboxRange || ahead < -DEBUG.hitboxRangeBehind) continue;
 
     let box = list.obstacles[count];
     if (box === undefined) {

@@ -6,12 +6,14 @@
  * switches for invincibility and hitboxes. The controls only report what was
  * asked for; what that does to a run lives in src/game/debug-tweaks.ts.
  *
- * Debug text is for whoever is building the game, so unlike the rest of the
- * UI it is not in src/ui/strings.ts.
+ * The control labels come from src/ui/strings.ts like every other piece of
+ * UI text (CLAUDE.md rule 9). The readout's short labels are part of its
+ * column layout and stay here.
  */
 
 import { DEBUG } from '../config';
 import { MAX_TIER } from '../game/difficulty';
+import { STRINGS } from '../ui/strings';
 
 export interface DebugInfo {
   elapsed: number;
@@ -70,7 +72,7 @@ export function isDebugEnabled(search: string = window.location.search): boolean
 const AUTO_TIER = -1;
 
 function tierLabel(tier: number | null): string {
-  return tier === null ? 'auto' : String(tier);
+  return tier === null ? STRINGS.debug.auto : String(tier);
 }
 
 export function createDebugOverlay(
@@ -93,7 +95,7 @@ export function createDebugOverlay(
   const fold = document.createElement('details');
   fold.open = true;
   const summary = document.createElement('summary');
-  summary.textContent = 'controls';
+  summary.textContent = STRINGS.debug.controls;
   const panel = document.createElement('div');
   panel.className = 'controls';
   fold.append(summary, panel);
@@ -124,21 +126,21 @@ export function createDebugOverlay(
 
   const speedInput = slider(DEBUG.speedScaleMin, DEBUG.speedScaleMax, DEBUG.speedScaleStep);
   const speedValue = document.createElement('span');
-  row('speed', speedInput, speedValue);
+  row(STRINGS.debug.speed, speedInput, speedValue);
 
   const tierInput = slider(AUTO_TIER, MAX_TIER, 1);
   const tierValue = document.createElement('span');
-  row('tier ', tierInput, tierValue);
+  row(STRINGS.debug.tier, tierInput, tierValue);
 
   const invincibleInput = checkbox();
-  row('invincible', invincibleInput);
+  row(STRINGS.debug.invincible, invincibleInput);
 
   const hitboxInput = checkbox();
-  row('hitboxes', hitboxInput);
+  row(STRINGS.debug.hitboxes, hitboxInput);
 
   const keys = document.createElement('div');
   keys.className = 'keys';
-  keys.textContent = 'keys: 1 2 3 power-ups, I invincible, H hitboxes';
+  keys.textContent = STRINGS.debug.keys;
   panel.appendChild(keys);
 
   speedInput.addEventListener('input', () => {

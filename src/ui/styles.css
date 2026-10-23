@@ -484,9 +484,12 @@ body {
   display: block;
 }
 
+/* Long lines wrap inside the panel rather than running off a phone screen. */
 #debug pre {
   margin: 0;
   font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* The controls take touches; the numbers above them do not. */

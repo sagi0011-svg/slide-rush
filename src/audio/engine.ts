@@ -59,6 +59,16 @@ function audioContextClass(): typeof AudioContext | null {
   return carrier.AudioContext ?? carrier.webkitAudioContext ?? null;
 }
 
+/**
+ * True while the page has a fresh user gesture, or when the browser cannot
+ * say (older Safari), in which case it is simply tried.
+ */
+function gestureIsActive(): boolean {
+  if (typeof navigator === 'undefined') return true;
+  const activation = (navigator as { userActivation?: { isActive: boolean } }).userActivation;
+  return activation === undefined ? true : activation.isActive;
+}
+
 export function createWebAudioEngine(): SoundEngine {
   let context: AudioContext | null = null;
   let master: GainNode | null = null;
@@ -159,6 +169,10 @@ export function createWebAudioEngine(): SoundEngine {
         void context.resume().catch(() => undefined);
         return;
       }
+      // Not until the browser counts this as a gesture: on a touch screen
+      // putting a finger down does not, and a context made then is only held
+      // back (with a console warning). Lifting the finger will ask again.
+      if (!gestureIsActive()) return;
       const Context = audioContextClass();
       if (Context === null) return;
 

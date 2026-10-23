@@ -37,6 +37,17 @@ export const STRINGS = {
     boost: 'BOOST',
   },
 
+  /** The debug panel's controls, `?debug=1` (SPEC 13). */
+  debug: {
+    controls: 'controls',
+    speed: 'speed',
+    tier: 'tier',
+    auto: 'auto',
+    invincible: 'invincible',
+    hitboxes: 'hitboxes',
+    keys: 'keys: 1 2 3 power-ups, I invincible, H hitboxes',
+  },
+
   /** The three first-run prompts (SPEC 11). */
   tutorial: {
     move: 'Swipe left or right to change lane',

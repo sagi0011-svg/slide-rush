@@ -87,15 +87,17 @@ export function createHud(root: HTMLElement): Hud {
 
   // The power-up rail is built once, then only shown and hidden (rule 7).
   const powerUpRail = root.querySelector<HTMLElement>('[data-hud="powerups"]');
-  const powerUpRows = new Map<PowerUpType, PowerUpRow>();
+  // Arrays in POWERUP_TYPES order rather than maps: walking a map makes a
+  // little garbage every frame, and this runs every frame (rule 7).
+  const powerUpRows: PowerUpRow[] = [];
   if (powerUpRail !== null) {
     for (const type of POWERUP_TYPES) {
       const built = buildPowerUpRow(type);
       powerUpRail.appendChild(built.row);
-      powerUpRows.set(type, built);
+      powerUpRows.push(built);
     }
   }
-  const lastPowerUps = new Map<PowerUpType, number>();
+  const lastPowerUps: number[] = POWERUP_TYPES.map(() => -1);
 
   // Only touch the DOM when something actually changed: writing text every
   // frame forces the browser to lay the page out again (SPEC 13).
@@ -110,12 +112,13 @@ export function createHud(root: HTMLElement): Hud {
       if (values.visible !== lastVisible) {
         lastVisible = values.visible;
         if (hudBar !== null) hudBar.hidden = !values.visible;
-        for (const row of powerUpRows.values()) {
+        for (let i = 0; i < powerUpRows.length; i += 1) {
+          const row = powerUpRows[i] as PowerUpRow;
           // Hidden rows stay hidden; the rest follow the HUD.
           if (!values.visible) row.row.hidden = true;
         }
         // Force the rows to be reconsidered next time the HUD comes back.
-        if (!values.visible) lastPowerUps.clear();
+        if (!values.visible) lastPowerUps.fill(-1);
       }
       if (!values.visible) return;
 
@@ -141,10 +144,11 @@ export function createHud(root: HTMLElement): Hud {
         lastMultiplier = values.multiplier;
       }
 
-      for (const [type, row] of powerUpRows) {
-        const left = values.powerUps[type];
-        if (!powerUpRowNeedsUpdate(left, lastPowerUps.get(type) ?? -1)) continue;
-        lastPowerUps.set(type, left);
+      for (let i = 0; i < powerUpRows.length; i += 1) {
+        const row = powerUpRows[i] as PowerUpRow;
+        const left = values.powerUps[POWERUP_TYPES[i] as PowerUpType];
+        if (!powerUpRowNeedsUpdate(left, lastPowerUps[i] ?? -1)) continue;
+        lastPowerUps[i] = left;
 
         row.row.hidden = left <= 0;
         if (left > 0) row.fill.style.transform = `scaleX(${left})`;
