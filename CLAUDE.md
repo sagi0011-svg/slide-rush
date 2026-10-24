@@ -1,6 +1,6 @@
 # CLAUDE.md — Slide Rush
 
-Read this first in every session. Then read `docs/SPEC.md` (the source of truth for rules and numbers) and `docs/MILESTONES.md` (what to build next).
+Read this first in every session. Then read `docs/SPEC.md` (the source of truth for rules and numbers, M0–M8), `docs/ART-AND-SHOP.md` (the same for the art pass, riders and shop, M9–M12) and `docs/MILESTONES.md` (what to build next).
 
 ## The project
 Endless water-slide runner for the browser. Mobile-first, portrait. Three.js + TypeScript (strict) + Vite. Tests with Vitest. Deployed to GitHub Pages via GitHub Actions.
@@ -19,11 +19,12 @@ Sagi is not a professional developer. When you report back:
 5. **Fixed-timestep simulation** (60 Hz) with interpolated rendering. Gameplay must behave the same at 30, 60 or 120 fps.
 6. **Seeded RNG** for all gameplay randomness (`src/game/rng.ts`), so runs are reproducible in tests and debug.
 7. **Object pooling** for track segments, obstacles, coins and pickups. No per-frame allocations in the hot loop.
-8. **Placeholder art only** (primitive meshes, flat colors from `src/config.ts` palette). Every visual goes through a small factory (`src/render/factories.ts`) so real models can replace them later without touching logic.
+8. **Retro pixel art, built in code.** Every visual still goes through the `src/render/` factories; no downloaded models and no image files. Pixel sprites are defined in code as small pixel maps plus palette indexes.
 9. **UI text in English**, all strings in `src/ui/strings.ts` (ready for Hebrew later).
 10. **Tests:** every rule in `src/game/` gets unit tests. `npm test`, `npm run build` and `npm run lint` must pass before you say a milestone is done.
 11. **Commits:** small, descriptive, conventional style (`feat:`, `fix:`, `test:`, `docs:`, `chore:`). Push to `main` at the end of each milestone; the Pages deploy runs automatically.
-12. **Out of scope for the MVP** (do not build): shop/upgrades, online leaderboard, revive/continue, final art, Hebrew UI, ads, accounts.
+12. **Shop and cosmetics are in scope** (v0.2). Still out of scope (do not build): upgrades that change gameplay, online leaderboard, revive/continue, ads, accounts, Hebrew UI.
+13. **Cosmetics are visual only.** Hitboxes, physics, speed and scoring must not change no matter which animal or ring is equipped, and a test must prove it.
 
 ## Folder layout (target)
 ```

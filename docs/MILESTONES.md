@@ -2,7 +2,7 @@
 
 Build in this order. One milestone per Claude Code session (or more if needed). After each one: Sagi plays it on phone + desktop, then we continue.
 
-Each milestone has a **prompt** to paste into Claude Code as-is.
+Each milestone has a **prompt** to paste into Claude Code as-is. M0–M8 follow `docs/SPEC.md`; M9–M12 follow `docs/ART-AND-SHOP.md`.
 
 ---
 
@@ -85,5 +85,41 @@ Full debug mode (`?debug=1`) from SPEC §13, performance pass on mobile (instanc
 
 ---
 
-## After MVP (not now)
-Design & art pass → shop/upgrades → missions → Hebrew UI → leaderboard → app wrapping.
+## M9 — Retro look
+Palette, low-res pixel rendering, toon shading, outlines, sky/hills/sun, scenery pool, recoloured obstacles/coins/pickups, pixel UI style on the existing screens. The rider is still the placeholder.
+
+**Done when:** the game looks like it belongs next to "ספלאש", runs 60 fps on a phone, and tests/build/lint pass.
+
+> Prompt: `Do Milestone M9 from docs/ART-AND-SHOP.md. Show me before/after fps from the debug overlay.`
+
+---
+
+## M10 — Riders
+Sprite system (3 layers: ring back, animal, ring front), the startup atlas, all 6 animals and 11 rings, all animations, debug gallery. The player uses the equipped pair from the save (default frog + tube).
+
+**Done when:** every animal × ring pair reads clearly at phone size in the gallery, and a test proves hitboxes are identical for every combo.
+
+> Prompt: `Do Milestone M10 from docs/ART-AND-SHOP.md. When done, tell me how to open the gallery on my phone.`
+
+---
+
+## M11 — Shop
+`src/game/shop.ts` + tests, save migration + tests, title screen changes, the shop screen with Animals/Rings tabs, game over changes, purchase sounds.
+
+**Done when:** coins can be spent, purchases and equipped items survive a reload, and an old save still loads without losing anything.
+
+> Prompt: `Do Milestone M11 from docs/ART-AND-SHOP.md.`
+
+---
+
+## M12 — Polish + release v0.2
+Phone QA pass, price tuning, bug fixes, updated README screenshots, tag `v0.2.0`.
+
+**Done when:** the v0.2 QA checklist passes on a phone and the tag is pushed.
+
+> Prompt: `Do Milestone M12 from docs/ART-AND-SHOP.md. Give me a QA checklist to run on my phone before we tag v0.2.0.`
+
+---
+
+## After v0.2 (not now)
+Missions → Hebrew UI → leaderboard → app wrapping.
