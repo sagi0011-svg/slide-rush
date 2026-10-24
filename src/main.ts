@@ -276,6 +276,8 @@ function boot(): void {
     info.drawCalls = renderer.drawCalls;
     info.pixelRatio = renderer.pixelRatio;
     info.triangles = renderer.triangles;
+    info.gamePixels = renderer.gamePixels;
+    info.pixelScale = renderer.pixelScale;
   };
 
   let lastFrameMs = performance.now();

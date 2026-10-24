@@ -4,7 +4,7 @@ Every sound, image, model and font in Slide Rush is listed here with where it ca
 
 ## Short version
 
-The game ships with **no third-party assets at all.** Every sound is generated in the browser by code in this repository, and every visual is a primitive shape in a flat colour. Nothing was downloaded, so there is nothing to credit and no licence that could be broken.
+The game ships with **no third-party asset files at all.** Every sound is generated in the browser by code in this repository, and every visual — including every pixel texture and sprite — is drawn in code from the palette in `src/config.ts` (CLAUDE.md rule 8). Nothing is downloaded except one webfont, **Pixelify Sans**, which is under the SIL Open Font Licence and listed under Fonts below.
 
 The generated sounds are original work for this project and are dedicated to the public domain under **[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)** — anyone may use them for anything, no credit needed.
 
@@ -38,7 +38,21 @@ The chord progression C – G – Am – F is one of the most common in popular 
 
 ## Fonts
 
-None are shipped. The UI uses the device's own system font (`system-ui`, San Francisco on Apple, Segoe UI on Windows, Roboto on Android).
+| Font | What it is used for | Source | Licence |
+|---|---|---|---|
+| Pixelify Sans | The whole pixel UI: title, buttons, HUD, screens (M9) | [Google Fonts](https://fonts.google.com/specimen/Pixelify+Sans), fetched by the `<link>` in `index.html` | [SIL Open Font Licence 1.1](https://openfontlicense.org/) |
+
+No font file is committed to this repository; it is fetched from Google Fonts
+at run time. The OFL allows that use freely and asks for no credit in the game
+itself, but it is recorded here anyway.
+
+The stylesheet asks for it with `display=swap` and falls back to the device's
+own monospace font, so the game still opens and plays normally on a phone with
+no connection, or if Google Fonts is blocked — it just looks less pixelly.
+
+The debug overlay (`?debug=1`) deliberately stays in the system monospace font:
+it is a measuring instrument, and aligned columns of digits matter more there
+than the style does.
 
 ## Code libraries
 
@@ -47,6 +61,20 @@ These are code, not assets, but they ship to players, so for completeness:
 | Library | Licence |
 |---|---|
 | [three.js](https://github.com/mrdoob/three.js) | MIT |
+
+## Art (M9)
+
+No image files are shipped or downloaded. Every texture is painted onto a small
+canvas in code at startup and every shape is assembled out of primitives:
+
+| Visual | What it is | Source | Licence |
+|---|---|---|---|
+| Sunset sky and sun | 64x112 dithered two-colour gradient with a pixel sun | Generated — `createSkyTexture` in `src/render/textures.ts` | CC0 1.0 (original) |
+| Hill layers | Two pixel silhouettes of rolling hills | Generated — `createHillTexture` in `src/render/textures.ts` | CC0 1.0 (original) |
+| Slide surface | Pixel water, scrolling light stripes, sand rims | Generated — `createSlideTexture` in `src/render/textures.ts` | CC0 1.0 (original) |
+| Spinning coin | 8-frame pixel strip | Generated — `createCoinStripTexture` in `src/render/textures.ts` | CC0 1.0 (original) |
+| Power-up icons | 16x16 pixel maps for shield, magnet and boost | Hand-authored pixel maps — `PICKUP_ICONS` in `src/render/textures.ts` | CC0 1.0 (original) |
+| Obstacles, scenery, player | Primitive shapes merged with baked-in vertex colours | Generated — `src/render/factories.ts` | CC0 1.0 (original) |
 
 ## Adding a real asset later
 

@@ -1,14 +1,19 @@
 /**
  * Drawing the floating power-up pickup (SPEC 9).
  *
- * Only one is ever on the track, so this keeps one mesh per type and shows
- * whichever is needed — no mesh is ever built or thrown away mid-run (rule 7).
+ * Only one is ever on the track, so this keeps one prop per type and shows
+ * whichever is needed — no prop is ever built or thrown away mid-run (rule 7).
+ *
+ * Each prop is a ring with the power-up's pixel icon in the middle
+ * (docs/ART-AND-SHOP.md §1). The ring turns; the icon does not, so it stays
+ * readable all the way in.
  */
 
-import type { Mesh, Scene } from 'three';
+import type { Scene } from 'three';
 import { LANES, POWERUPS } from '../config';
 import { POWERUP_TYPES, type PowerUpType } from '../game/powerups';
-import { createPickupMesh } from './factories';
+import { createPickupMesh, type PickupProp } from './factories';
+import { disposeMesh } from './materials';
 import { curveX, curveY } from './curve';
 
 export interface PickupView {
@@ -25,45 +30,40 @@ export interface PickupLayer {
 }
 
 export function createPickupLayer(scene: Scene): PickupLayer {
-  const meshes = new Map<PowerUpType, Mesh>();
+  const props = new Map<PowerUpType, PickupProp>();
   for (const type of POWERUP_TYPES) {
-    const mesh = createPickupMesh(type);
-    mesh.visible = false;
-    scene.add(mesh);
-    meshes.set(type, mesh);
+    const prop = createPickupMesh(type);
+    prop.group.visible = false;
+    scene.add(prop.group);
+    props.set(type, prop);
   }
 
   return {
     update(pickup, playerS, elapsed) {
-      for (const [type, mesh] of meshes) {
+      for (const [type, prop] of props) {
         const showing = pickup.active && pickup.type === type;
-        mesh.visible = showing;
+        prop.group.visible = showing;
         if (!showing) continue;
 
-        // Bob gently and turn, so it reads as something to pick up.
+        // Bob gently, so it reads as something to pick up.
         const bob = Math.sin(elapsed * 2.2) * 0.18;
-        mesh.position.set(
+        prop.group.position.set(
           curveX(pickup.s) + pickup.lane * LANES.width,
           curveY(pickup.s) + pickup.y + bob,
           playerS - pickup.s,
         );
-        mesh.rotation.y = elapsed * POWERUPS.pickupSpinRate * Math.PI * 2;
-        mesh.rotation.x = elapsed * POWERUPS.pickupSpinRate * Math.PI;
+        // The ring turns about the axis pointing at the player, like a wheel
+        // seen face on; the icon inside it stays put.
+        prop.ring.rotation.z = elapsed * POWERUPS.pickupSpinRate * Math.PI * 2;
       }
     },
 
     dispose() {
-      for (const mesh of meshes.values()) {
-        scene.remove(mesh);
-        mesh.geometry.dispose();
-        const material = mesh.material;
-        if (Array.isArray(material)) {
-          for (const entry of material) entry.dispose();
-        } else {
-          material.dispose();
-        }
+      for (const prop of props.values()) {
+        scene.remove(prop.group);
+        disposeMesh(prop.group);
       }
-      meshes.clear();
+      props.clear();
     },
   };
 }

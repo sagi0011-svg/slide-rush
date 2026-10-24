@@ -489,26 +489,217 @@ export const DEBUG = {
 } as const;
 
 /**
- * Placeholder palette. Every colour used by the render layer comes from here,
- * so swapping in real art later never touches game logic (CLAUDE.md rule 8).
+/**
+ * The retro pixel look (docs/ART-AND-SHOP.md section 1).
+ *
+ * The 3D scene is drawn into a small render target and blown back up with
+ * nearest-neighbour filtering, so every game pixel lands as a crisp square
+ * block of screen pixels. That is what gives the picture its chunky look, and
+ * it is also why it is cheaper than before: at a pixel scale of 4 the GPU
+ * fills one sixteenth of the pixels it used to.
+ */
+export const RETRO = {
+  /** How many screen pixels wide one game pixel is. 4 = chunky. */
+  pixelScale: 4,
+  /** Finer pixels on a big screen, where 4 would read as a mosaic. */
+  largePixelScale: 3,
+  /** A drawing buffer at least this wide, in screen pixels, counts as large. */
+  largeScreenWidth: 900,
+  /** The low-res target never shrinks below this many game pixels on a side. */
+  minTargetSize: 64,
+  /** Brightness steps in the toon ramp: shadow, mid, lit. */
+  toonSteps: 3,
+  /**
+   * The dark outline is an inverted hull: the same shape drawn inside out in
+   * the outline colour, a little larger, so its back faces show as a rim
+   * around the front ones. It is this rather than a full-screen edge pass
+   * because it needs no second render target and no depth read, which is what
+   * makes an edge pass expensive on a phone.
+   */
+  outlineGrow: 0.055,
+  /** How many pixels of texture one unit of the world gets. */
+  texturePixelsPerUnit: 8,
+  /** The sunset sky, painted once into a texture (section 1). */
+  sky: {
+    /** Size of the painted sky, in pixels. Small on purpose: it is upscaled. */
+    width: 64,
+    height: 112,
+    /**
+     * Where the dither band between the two sky colours sits, 0..1 from the
+     * top, and how tall it is. Both sit high up because the hills cover the
+     * bottom half of the sky: a band in the middle of the texture would be
+     * painted behind them and never seen.
+     */
+    ditherCentre: 0.33,
+    ditherHeight: 0.4,
+    /**
+     * The sun: radius in sky pixels, and where its middle sits, 0..1. High
+     * enough to clear the hills, and off to one side so it does not sit
+     * directly behind the slide.
+     */
+    sunRadius: 10,
+    sunX: 0.64,
+    sunY: 0.1,
+    /** How much wider the glow ring around the sun is, in sky pixels. */
+    sunGlowGrow: 4,
+  },
+  /**
+   * Two layers of hills behind the slide. They ride with the camera, so they
+   * never come closer however far the player travels; `parallax` is how much
+   * of the camera's sideways move each layer copies, which is what makes the
+   * near layer slide against the far one.
+   */
+  hills: {
+    /** How far in front of the camera each layer sits, in units. */
+    distance: [195, 170],
+    /** Width and height of each layer, in units. */
+    width: [560, 460],
+    height: [76, 54],
+    /** How far above the camera's eye line each layer is centred, in units. */
+    lift: [9, 1],
+    /** Share of the camera's sideways move each layer copies, 0..1. */
+    parallax: [0.12, 0.26],
+    /** How many hill humps are painted across one layer. */
+    humps: [7, 5],
+    /** Pixels across each layer's painted silhouette. */
+    pixels: 128,
+  },
+  /** The slide surface: pixel water with stripes that scroll past (section 1). */
+  water: {
+    /**
+     * How long the painted pattern is before it repeats, in units. It has to
+     * divide TRACK.segmentLength exactly, or a segment ends mid-pattern and
+     * every segment join shows as a seam down the slide (guarded by a test).
+     */
+    patternLength: 10,
+    /** How fast the light stripes scroll, in pattern-lengths per second. */
+    stripeScroll: 0.55,
+    /** How many light stripes are painted across one pattern. */
+    stripes: 3,
+    /** Thickness of a stripe, as a share of the pattern length. */
+    stripeThickness: 0.1,
+    /** Width of the sand rim down each side of the slide, in units. */
+    rimWidth: 0.55,
+    /** Thickness of the dark outline along the rim, in units. */
+    rimOutline: 0.14,
+  },
+  /** The spinning pixel coin: a billboard that flips through its frames. */
+  coin: {
+    /** Frames in the spin, drawn into one strip. */
+    frames: 8,
+    /** Pixels per frame, square. */
+    framePixels: 16,
+    /** How fast the strip plays, in frames per second. */
+    frameRate: 12,
+  },
+  /** The pixel icon on each power-up's floating ring. */
+  pickup: {
+    /** Pixels per icon, square. */
+    iconPixels: 16,
+  },
+  /**
+   * Scenery down both sides of the slide: slide towers, round trees, palms and
+   * huts, pooled and recycled exactly like the track segments (rule 7).
+   */
+  scenery: {
+    /** One scenery slot every this many units, on each side. */
+    spacing: 13,
+    /** How far from the middle of the slide a prop stands, in units. */
+    offsetMin: 7.5,
+    offsetMax: 16,
+    /** How much a prop's size can vary, as a multiplier. */
+    scaleMin: 0.8,
+    scaleMax: 1.35,
+    /** How far ahead props are placed, in units: just inside the fog. */
+    buildAhead: 150,
+    /** How far behind the player a prop is recycled, in units. */
+    recycleBehind: 25,
+    /** Share of slots left empty, so the sides never look like a fence, 0..1. */
+    emptyShare: 0.26,
+  },
+  /** Square pixel splashes thrown up when the player lands (section 1). */
+  splash: {
+    /** How many particles one landing throws. */
+    perLanding: 14,
+    /** How many can be alive at once; the pool never grows (rule 7). */
+    poolSize: 64,
+    /** How long one particle lives, in seconds. */
+    life: 0.5,
+    /** Size of one square, in units. */
+    size: 0.16,
+    /** How fast they fly out, in units per second. */
+    speedMin: 2.2,
+    speedMax: 5.5,
+    /** Downward pull on a particle, in units per second squared. */
+    gravity: 11,
+  },
+} as const;
+
+/**
+ * The retro palette (docs/ART-AND-SHOP.md section 1).
+ *
+ * Every colour the render layer uses comes from here, so the look can be
+ * retuned without touching game logic (CLAUDE.md rule 8). All the names from
+ * the spec's table are here; the older keys stay too, pointing at their new
+ * retro colour, so nothing that reads the palette had to change.
  */
 export const PALETTE = {
-  sky: 0x7fd4ff,
-  fog: 0x7fd4ff,
-  water: 0x2aa9e0,
-  slide: 0x3fc1f2,
-  slideEdge: 0xffffff,
-  player: 0xffe066,
-  lowMine: 0xe03131,
-  highObstacle: 0x1971c2,
-  fullBlocker: 0x868e96,
-  softObstacle: 0xfcc419,
-  coin: 0xffd43b,
-  shield: 0x22d3ee,
-  magnet: 0x9775fa,
-  boost: 0xff922b,
-  letterbox: 0x0b1726,
-  /** Debug hitboxes: the player, things that kill, things that trip. */
+  /** Every outline, text shadow and button border. */
+  outline: 0x2b2140,
+  /** The sunset sky, the two ends of the dithered gradient. */
+  skyTop: 0xf6c9a8,
+  skyBottom: 0xf8e3c4,
+  /** The sunset sun, and the glow ring around it. */
+  sun: 0xfff1c9,
+  sunGlow: 0xf4a259,
+  /** The far hills: the distant layer and the nearer, darker one. */
+  mountain: 0x9c8bc4,
+  mountainDark: 0x6f5e9e,
+  /** Trees and ground. */
+  forest: 0x3e7a4a,
+  forestLight: 0x6db36a,
+  forestDark: 0x2e5a3a,
+  /** The slide surface and its stripes. */
+  water: 0x8fe0e8,
+  waterLight: 0xc9f4f2,
+  waterDeep: 0x4aa7c8,
+  /** The rims down the sides of the slide. */
+  slideEdge: 0xf2e2b8,
+  sand: 0xd9c08c,
+  /** Towers, obstacles and UI. */
+  red: 0xe9806a,
+  orange: 0xf2a65a,
+  yellow: 0xf6c85f,
+  blue: 0x3e6fbf,
+  skyBlue: 0x6cc6e0,
+  /** Text and highlights. */
+  cream: 0xfbf3e4,
+
+  // --- The older names, kept so nothing that reads them had to change. ---
+  /** The clear colour behind the painted sky. */
+  sky: 0xf8e3c4,
+  /** Fog matches the bottom of the sky, so the track fades into it. */
+  fog: 0xf8e3c4,
+  /** The slide floor. */
+  slide: 0x8fe0e8,
+  /** The placeholder rider, until the animals arrive in M10. */
+  player: 0xf6c85f,
+  /** The four obstacles (section 1). */
+  lowMine: 0xe9806a,
+  highObstacle: 0x3e6fbf,
+  fullBlocker: 0xd9c08c,
+  softObstacle: 0xf6c85f,
+  coin: 0xf6c85f,
+  /** The three power-ups. */
+  shield: 0x6cc6e0,
+  magnet: 0x6f5e9e,
+  boost: 0xf2a65a,
+  /** The frame around the portrait playfield. */
+  letterbox: 0x2b2140,
+  /**
+   * Debug hitboxes: the player, things that kill, things that trip. These are
+   * deliberately not retro — they are read, not admired (SPEC 13).
+   */
   debugPlayer: 0x40c057,
   debugDeadly: 0xff2d55,
   debugStumble: 0xffd60a,

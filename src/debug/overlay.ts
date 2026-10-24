@@ -34,6 +34,13 @@ export interface DebugInfo {
   drawCalls: number;
   pixelRatio: number;
   triangles: number;
+  /**
+   * How many pixels the 3D scene was actually drawn at, and how many screen
+   * pixels wide one of them is (docs/ART-AND-SHOP.md section 1). This is the
+   * number the retro pass exists to bring down, so it is worth seeing.
+   */
+  gamePixels: number;
+  pixelScale: number;
 }
 
 /** What the controls are set to. */
@@ -180,6 +187,8 @@ export function createDebugOverlay(
     drawCalls: 0,
     pixelRatio: 1,
     triangles: 0,
+    gamePixels: 0,
+    pixelScale: 1,
   };
 
   return {
@@ -207,6 +216,7 @@ export function createDebugOverlay(
       stats.textContent = [
         `fps   ${fps.toFixed(0)} (worst ${(worstFrame * 1000).toFixed(0)}ms)`,
         `draw  ${info.drawCalls} calls, ${(info.triangles / 1000).toFixed(1)}k tris, ${info.pixelRatio}x`,
+        `pix   ${(info.gamePixels / 1000).toFixed(0)}k game px @ ${info.pixelScale}:1`,
         `time  ${info.elapsed.toFixed(1)}s`,
         `speed ${info.speed.toFixed(1)} u/s`,
         `lane  ${info.lane}`,

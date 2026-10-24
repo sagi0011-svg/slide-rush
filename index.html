@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#0b1726" />
+    <meta name="theme-color" content="#2b2140" />
     <meta
       name="description"
       content="Slide Rush — an endless water-slide runner in your browser."
@@ -14,6 +14,19 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Slide Rush</title>
+    <!--
+      The pixel UI font (docs/ART-AND-SHOP.md section 1). Everything else in
+      the game is drawn in code, but a typeface is the one thing worth taking
+      off the shelf; this one is OFL-licensed and listed in ASSETS.md. With
+      display=swap the game still opens if it cannot be fetched, falling back
+      to the monospace stack in styles.css.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="app">

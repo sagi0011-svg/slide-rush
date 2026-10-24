@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+// Vite hands a ?raw import back as a plain string (typed by vite/client).
+import css from '../src/ui/styles.css?raw';
 import {
   AUDIO,
   CAMERA,
@@ -7,6 +9,7 @@ import {
   INPUT,
   LANES,
   OBSTACLES,
+  PALETTE,
   PLAYER,
   POWERUPS,
   SCORING,
@@ -154,5 +157,95 @@ describe('sound settings (SPEC 12)', () => {
     expect(AUDIO.water.crossfade).toBeLessThan(AUDIO.water.loopSeconds);
     expect(AUDIO.water.swellDepth).toBeGreaterThan(0);
     expect(AUDIO.water.swellDepth).toBeLessThanOrEqual(1);
+  });
+});
+
+/**
+ * The retro palette (docs/ART-AND-SHOP.md section 1).
+ *
+ * The colours live in src/config.ts, but the HTML overlay needs them too and
+ * CSS cannot import from TypeScript, so src/ui/styles.css repeats them as
+ * custom properties. These tests are what stops the two copies drifting apart.
+ */
+describe('the retro palette', () => {
+  const required = [
+    'outline',
+    'skyTop',
+    'skyBottom',
+    'sun',
+    'sunGlow',
+    'mountain',
+    'mountainDark',
+    'forest',
+    'forestLight',
+    'forestDark',
+    'water',
+    'waterLight',
+    'waterDeep',
+    'slideEdge',
+    'sand',
+    'red',
+    'orange',
+    'yellow',
+    'blue',
+    'skyBlue',
+    'cream',
+  ] as const;
+
+  it('has every colour the spec names', () => {
+    for (const name of required) {
+      expect(PALETTE, name).toHaveProperty(name);
+      expect(typeof PALETTE[name], name).toBe('number');
+    }
+  });
+
+  it('still answers to the older names the render layer uses', () => {
+    for (const name of ['sky', 'fog', 'slide', 'player', 'coin', 'letterbox'] as const) {
+      expect(typeof PALETTE[name], name).toBe('number');
+    }
+  });
+
+  it('keeps every colour inside a 24-bit value', () => {
+    for (const [name, value] of Object.entries(PALETTE)) {
+      expect(value, name).toBeGreaterThanOrEqual(0);
+      expect(value, name).toBeLessThanOrEqual(0xffffff);
+    }
+  });
+
+  it('matches the copy of itself in styles.css', () => {
+    // The CSS custom property for each palette key that the overlay uses.
+    const shared: Readonly<Record<string, keyof typeof PALETTE>> = {
+      '--outline': 'outline',
+      '--cream': 'cream',
+      '--sand': 'sand',
+      '--slide-edge': 'slideEdge',
+      '--yellow': 'yellow',
+      '--orange': 'orange',
+      '--red': 'red',
+      '--blue': 'blue',
+      '--sky-blue': 'skyBlue',
+      '--water': 'water',
+      '--mountain-dark': 'mountainDark',
+      '--letterbox': 'letterbox',
+    };
+
+    // Read the custom properties off the stylesheet a line at a time: simpler
+    // to be sure of than a regex, and the failure says which one is wrong.
+    const declared = new Map<string, string>();
+    for (const line of css.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('--')) continue;
+      const colon = trimmed.indexOf(':');
+      if (colon < 0) continue;
+      const name = trimmed.slice(0, colon).trim();
+      let value = trimmed.slice(colon + 1).trim();
+      if (value.endsWith(';')) value = value.slice(0, -1).trim();
+      if (value.startsWith('#')) declared.set(name, value.slice(1).toLowerCase());
+    }
+
+    for (const [property, key] of Object.entries(shared)) {
+      const expected = PALETTE[key].toString(16).padStart(6, '0');
+      expect(declared.get(property), `styles.css ${property}`).toBe(expected);
+    }
   });
 });

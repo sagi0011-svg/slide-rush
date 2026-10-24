@@ -6,8 +6,8 @@
  * pre-allocated scratch objects, so no garbage is made per frame (rule 7).
  */
 
-import { Matrix4, Quaternion, Vector3, type InstancedMesh, type Scene } from 'three';
-import { COINS, LANES } from '../config';
+import { Matrix4, Quaternion, Vector3, type InstancedMesh, type Scene, type Texture } from 'three';
+import { COINS, LANES, RETRO } from '../config';
 import { createCoinInstances } from './factories';
 import { curveX, curveY } from './curve';
 
@@ -34,18 +34,21 @@ export interface CoinLayer {
 const matrix = new Matrix4();
 const position = new Vector3();
 const rotation = new Quaternion();
-const spinAxis = new Vector3(0, 1, 0);
 const scale = new Vector3(1, 1, 1);
 
 export function createCoinLayer(scene: Scene, capacity: number = COINS.poolSize): CoinLayer {
-  const mesh: InstancedMesh = createCoinInstances(capacity);
+  const { mesh, texture }: { mesh: InstancedMesh; texture: Texture } =
+    createCoinInstances(capacity);
   scene.add(mesh);
 
   return {
     update(coins, playerS, elapsed) {
-      // All coins spin together; one angle does for the whole trail.
-      const angle = elapsed * COINS.spinRate * Math.PI * 2;
-      rotation.setFromAxisAngle(spinAxis, angle);
+      // The coin is a flat billboard now, spun by stepping through the frames
+      // of its pixel strip rather than by turning the mesh (§1). Every coin
+      // shows the same frame — they always did spin in step — so one offset
+      // animates the whole trail.
+      const frame = Math.floor(elapsed * RETRO.coin.frameRate) % RETRO.coin.frames;
+      texture.offset.x = frame / RETRO.coin.frames;
 
       let drawn = 0;
       for (const coin of coins) {
@@ -76,6 +79,7 @@ export function createCoinLayer(scene: Scene, capacity: number = COINS.poolSize)
       } else {
         material.dispose();
       }
+      texture.dispose();
       mesh.dispose();
     },
   };

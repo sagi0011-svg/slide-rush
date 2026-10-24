@@ -1,16 +1,27 @@
 /**
  * Drawing the obstacles (SPEC 7).
  *
- * One pooled mesh per obstacle type, matched to the game's own obstacle pool.
- * Meshes are hidden rather than created and destroyed, so the hot loop makes
- * no garbage (CLAUDE.md rule 7).
+ * One instanced mesh per obstacle type, plus one outline mesh each, so every
+ * obstacle in view costs eight draw calls in total however many there are
+ * (docs/ART-AND-SHOP.md §1). Nothing is created or destroyed while the game
+ * runs: a type that has nothing on the track simply draws none of its
+ * instances (CLAUDE.md rule 7).
+ *
+ * The shapes and the positions are exactly as they were with the placeholder
+ * meshes — only the look changed — because both come from OBSTACLES.size,
+ * which is also where the hitboxes in src/game/ come from.
  */
 
-import type { Mesh, Scene } from 'three';
+import { Matrix4, Quaternion, Vector3, type InstancedMesh, type Scene } from 'three';
 import { LANES, TRACK } from '../config';
 import type { ObstacleType } from '../game/obstacles';
 import { OBSTACLE_TYPES } from '../game/obstacles';
-import { createObstacleMesh, obstacleMeshHeight } from './factories';
+import {
+  createObstacleGeometry,
+  createOutlinedInstances,
+  obstacleMeshHeight,
+  obstacleSize,
+} from './factories';
 import { curveX, curveY } from './curve';
 
 /** What the renderer needs to know about one obstacle on the track. */
@@ -27,27 +38,35 @@ export interface ObstacleLayer {
   dispose(): void;
 }
 
+/** Scratch objects, reused for every obstacle on every frame (rule 7). */
+const matrix = new Matrix4();
+const position = new Vector3();
+const rotation = new Quaternion();
+const scale = new Vector3(1, 1, 1);
+
+interface Pool {
+  mesh: InstancedMesh;
+  outline: InstancedMesh;
+  used: number;
+}
+
 export function createObstacleLayer(scene: Scene): ObstacleLayer {
-  // A pool per type, so a mesh is never rebuilt when an obstacle changes type.
-  const pools = new Map<ObstacleType, Mesh[]>();
-  const used = new Map<ObstacleType, number>();
+  const pools = new Map<ObstacleType, Pool>();
 
   for (const type of OBSTACLE_TYPES) {
-    pools.set(type, []);
-    used.set(type, 0);
+    const geometry = createObstacleGeometry(type);
+    const { mesh, outline } = createOutlinedInstances(
+      geometry,
+      TRACK.obstaclePoolSize,
+      obstacleSize(type),
+    );
+    scene.add(mesh, outline);
+    pools.set(type, { mesh, outline, used: 0 });
   }
-
-  const grow = (type: ObstacleType): Mesh => {
-    const mesh = createObstacleMesh(type);
-    mesh.visible = false;
-    scene.add(mesh);
-    (pools.get(type) as Mesh[]).push(mesh);
-    return mesh;
-  };
 
   return {
     update(obstacles, playerS) {
-      for (const type of OBSTACLE_TYPES) used.set(type, 0);
+      for (const pool of pools.values()) pool.used = 0;
 
       for (const obstacle of obstacles) {
         if (!obstacle.active) continue;
@@ -55,43 +74,40 @@ export function createObstacleLayer(scene: Scene): ObstacleLayer {
         const ahead = obstacle.s - playerS;
         if (ahead > TRACK.buildAhead || ahead < -TRACK.despawnBehind) continue;
 
-        const pool = pools.get(obstacle.type) as Mesh[];
-        const index = used.get(obstacle.type) as number;
-        const mesh = pool[index] ?? grow(obstacle.type);
-        used.set(obstacle.type, index + 1);
+        const pool = pools.get(obstacle.type);
+        if (pool === undefined || pool.used >= TRACK.obstaclePoolSize) continue;
 
         // The same visual bend as the track, so obstacles sit on the slide.
-        mesh.position.set(
+        position.set(
           curveX(obstacle.s) + obstacle.lane * LANES.width,
           curveY(obstacle.s) + obstacleMeshHeight(obstacle.type),
           playerS - obstacle.s,
         );
-        mesh.visible = true;
+        matrix.compose(position, rotation, scale);
+        pool.mesh.setMatrixAt(pool.used, matrix);
+        pool.outline.setMatrixAt(pool.used, matrix);
+        pool.used += 1;
       }
 
-      // Hide whatever was not needed this frame.
-      for (const type of OBSTACLE_TYPES) {
-        const pool = pools.get(type) as Mesh[];
-        for (let i = used.get(type) as number; i < pool.length; i += 1) {
-          (pool[i] as Mesh).visible = false;
-        }
+      for (const pool of pools.values()) {
+        pool.mesh.count = pool.used;
+        pool.outline.count = pool.used;
+        pool.mesh.instanceMatrix.needsUpdate = true;
+        pool.outline.instanceMatrix.needsUpdate = true;
       }
     },
 
     dispose() {
       for (const pool of pools.values()) {
-        for (const mesh of pool) {
-          scene.remove(mesh);
-          mesh.geometry.dispose();
-          const material = mesh.material;
-          if (Array.isArray(material)) {
-            for (const entry of material) entry.dispose();
-          } else {
-            material.dispose();
-          }
-        }
-        pool.length = 0;
+        scene.remove(pool.mesh, pool.outline);
+        pool.mesh.geometry.dispose();
+        pool.outline.geometry.dispose();
+        (pool.mesh.material as { dispose(): void }).dispose();
+        (pool.outline.material as { dispose(): void }).dispose();
+        pool.mesh.dispose();
+        pool.outline.dispose();
       }
+      pools.clear();
     },
   };
 }

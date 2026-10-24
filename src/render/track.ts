@@ -7,21 +7,14 @@
  * once, when that segment is recycled onto a new stretch of slide.
  */
 
-import type {
-  BufferAttribute,
-  CanvasTexture,
-  Mesh,
-  MeshStandardMaterial,
-  PlaneGeometry,
-  Scene,
-} from 'three';
+import type { BufferAttribute, Texture, Mesh, MeshToonMaterial, PlaneGeometry, Scene } from 'three';
 import { TRACK } from '../config';
 import { createTrackSegment } from './factories';
 import { curveX, curveY } from './curve';
 import { segmentWindowStart, wrapSegmentStart } from './recycle';
 
 interface Segment {
-  mesh: Mesh<PlaneGeometry, MeshStandardMaterial>;
+  mesh: Mesh<PlaneGeometry, MeshToonMaterial>;
   /** Distance from the start of the slide to this segment's near edge, in units. */
   startS: number;
   /** The flat, unbent position of every vertex, so bending never accumulates. */
@@ -68,7 +61,7 @@ function shapeSegment(segment: Segment): void {
   segment.mesh.position.y = anchorY;
 }
 
-export function createTrack(scene: Scene, texture: CanvasTexture): Track {
+export function createTrack(scene: Scene, texture: Texture): Track {
   const count = segmentCount();
   const span = count * TRACK.segmentLength;
   const segments: Segment[] = [];
