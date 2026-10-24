@@ -13,7 +13,6 @@
 import {
   AmbientLight,
   BoxGeometry,
-  CapsuleGeometry,
   CircleGeometry,
   ConeGeometry,
   CylinderGeometry,
@@ -29,17 +28,22 @@ import {
   type BufferGeometry,
   type Object3D,
   PlaneGeometry,
-  SphereGeometry,
   TorusGeometry,
   type Texture,
 } from 'three';
-import { COINS, OBSTACLES, PALETTE, PLAYER, POWERUPS, RETRO, TRACK } from '../config';
+import { COINS, OBSTACLES, PALETTE, PLAYER, POWERUPS, RETRO, RIDER, TRACK } from '../config';
 import type { ObstacleType } from '../game/obstacles';
 import type { PowerUpType } from '../game/powerups';
 import { fattenGeometry, mergeColoredParts, type GeometryPart } from './geometry';
 import { addOutline, outlineMaterial, outlineThickness, toonMaterial } from './materials';
 import type { SceneryKind } from './scenery-layout';
-import { createCoinStripTexture, createPickupIconTexture } from './textures';
+import { RIDER_LAYOUT } from './rider-pose';
+import { EFFECT_IN_FRONT } from './sprites';
+import {
+  createCoinStripTexture,
+  createPickupIconTexture,
+  createRiderAtlasTexture,
+} from './textures';
 
 /** How many times the geometry of a track segment is cut across its length. */
 export const SEGMENT_DIVISIONS = 12;
@@ -71,17 +75,102 @@ export function createTrackSegment(texture: Texture): Mesh<PlaneGeometry, MeshTo
   return mesh;
 }
 
+/** The rider's layers, back to front, and what they share. */
+export interface RiderMesh {
+  /** Sits on the slide under the rider's middle; this is what gets moved about. */
+  group: Group;
+  /** The ring and the animal together, so a duck can drop them both. */
+  body: Group;
+  ringBack: Mesh<PlaneGeometry, MeshBasicMaterial>;
+  animal: Mesh<PlaneGeometry, MeshBasicMaterial>;
+  ringFront: Mesh<PlaneGeometry, MeshBasicMaterial>;
+  /** One quad per power-up, in front of the rider or behind it, hidden when off. */
+  effects: Record<PowerUpType, Mesh<PlaneGeometry, MeshBasicMaterial>>;
+  /** The one atlas every layer draws from, and the one material they share. */
+  texture: Texture;
+  material: MeshBasicMaterial;
+}
+
 /**
- * The player: still the placeholder capsule, now toon-shaded and outlined so
- * it does not look out of place. The animal in its ring arrives in M10.
+ * The player: an animal sitting in a ring, as flat pixel sprites facing down
+ * the slide (docs/ART-AND-SHOP.md §2).
+ *
+ * Three layers make the rider — the ring's back half, the animal, the ring's
+ * front half — so any animal fits any ring, and one more per power-up carries
+ * its effect, in front of the rider or behind it. Every layer is a quad drawn
+ * from the same atlas with the same material; which frame each shows is
+ * chosen by its UVs, so the rider costs three tiny draw calls and one texture,
+ * plus one for each power-up running.
+ *
+ * The quads face +Z, towards the camera behind the player, and the rider turns
+ * the whole group square to the camera every frame so the pixels stay square
+ * on the drops too (rider.ts). Like the coins they cut their clear pixels out
+ * rather than blending them, which keeps them out of the transparency sort;
+ * the layers are a hair apart in depth, which is all it takes to stack them
+ * in the right order.
+ *
+ * Purely a picture: how big it is has nothing to do with the hitbox, which is
+ * still PLAYER's (CLAUDE.md rule 13).
  */
-export function createPlayerMesh(): Mesh<CapsuleGeometry, MeshToonMaterial> {
-  const bodyLength = PLAYER.standHeight - PLAYER.radius * 2;
-  const geometry = new CapsuleGeometry(PLAYER.radius, bodyLength, 4, 10);
-  const material = toonMaterial({ color: PALETTE.player });
-  const mesh = new Mesh(geometry, material);
-  addOutline(mesh, PLAYER.standHeight);
-  return mesh;
+export function createRiderMesh(): RiderMesh {
+  const texture = createRiderAtlasTexture();
+  const material = new MeshBasicMaterial({ map: texture, alphaTest: 0.5, transparent: false });
+  const unit = 1 / RIDER.pixelsPerUnit;
+
+  const quad = (width: number, height: number): Mesh<PlaneGeometry, MeshBasicMaterial> => {
+    const mesh = new Mesh(new PlaneGeometry(width * unit, height * unit), material);
+    // Small and always right under the camera: never worth culling.
+    mesh.frustumCulled = false;
+    return mesh;
+  };
+
+  const group = new Group();
+  const body = new Group();
+  group.add(body);
+
+  // The ring's bottom edge sits a little under the water, so it floats.
+  const ringBottom = -RIDER.ringSinkPixels * unit;
+  const ringBack = quad(RIDER.ringWidth, RIDER.ringHeight);
+  const ringFront = quad(RIDER.ringWidth, RIDER.ringHeight);
+  for (const [mesh, z] of [
+    [ringBack, -RIDER.layerGap],
+    [ringFront, RIDER.layerGap],
+  ] as const) {
+    mesh.position.set(0, ringBottom + (RIDER.ringHeight / 2) * unit, z);
+    body.add(mesh);
+  }
+
+  // The animal's resting place; the rider view moves it from here per pose.
+  const animal = quad(RIDER.animalPixels, RIDER.animalPixels);
+  animal.position.set(0, riderAnimalY(0), 0);
+  body.add(animal);
+
+  // The effects, centred on the middle of the whole rider: the ones in front
+  // a step nearer than the ring's front half, the ones behind a step further
+  // back than its back half.
+  const middle = ringBottom + (RIDER_LAYOUT.height / 2) * unit;
+  const effect = (type: PowerUpType): Mesh<PlaneGeometry, MeshBasicMaterial> => {
+    const mesh = quad(RIDER.effectWidth, RIDER.effectHeight);
+    mesh.position.set(0, middle, (EFFECT_IN_FRONT[type] ? 2 : -2) * RIDER.layerGap);
+    mesh.visible = false;
+    group.add(mesh);
+    return mesh;
+  };
+  const effects = { shield: effect('shield'), magnet: effect('magnet'), boost: effect('boost') };
+
+  return { group, body, ringBack, animal, ringFront, effects, texture, material };
+}
+
+/**
+ * Where the middle of the animal quad sits, in units above the slide, when it
+ * is moved `dy` sprite pixels down from its resting place: its bottom edge on
+ * `RIDER.animalBottomRow` of the ring.
+ */
+export function riderAnimalY(dy: number): number {
+  const unit = 1 / RIDER.pixelsPerUnit;
+  const ringBottom = -RIDER.ringSinkPixels * unit;
+  const bottom = ringBottom + (RIDER.ringHeight - RIDER.animalBottomRow) * unit;
+  return bottom + (RIDER.animalPixels / 2 - dy) * unit;
 }
 
 /** A soft blob shadow under the player — cheaper than a real shadow (SPEC 13). */
@@ -325,20 +414,6 @@ export function createPickupMesh(type: PowerUpType): PickupProp {
   group.add(icon);
 
   return { group, ring };
-}
-
-/** The bubble drawn around the player while a shield is up (SPEC 9). */
-export function createShieldBubble(): Mesh<SphereGeometry, MeshBasicMaterial> {
-  const geometry = new SphereGeometry(PLAYER.standHeight * 0.75, 10, 8);
-  const material = new MeshBasicMaterial({
-    color: PALETTE.skyBlue,
-    transparent: true,
-    opacity: 0.32,
-    depthWrite: false,
-  });
-  const mesh = new Mesh(geometry, material);
-  mesh.visible = false;
-  return mesh;
 }
 
 // --- Scenery -----------------------------------------------------------------

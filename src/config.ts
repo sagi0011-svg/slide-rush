@@ -474,6 +474,15 @@ export const DEATH = {
 export const SAVE = {
   /** Versioned localStorage key, so an old save shape can never break a new build. */
   key: 'slide-rush/save/v1',
+  /**
+   * The rider a fresh save starts with: the two free starters
+   * (docs/ART-AND-SHOP.md §2). They must match the ids in src/render/sprites/,
+   * which a test checks.
+   */
+  starterAnimal: 'frog',
+  starterRing: 'tube',
+  /** A saved id longer than this is junk, not an id. */
+  maxIdLength: 32,
 } as const;
 
 /** Debug mode, `?debug=1` (SPEC 13). Never reachable in a normal game. */
@@ -636,6 +645,73 @@ export const RETRO = {
 } as const;
 
 /**
+ * The rider: an animal sitting in a funny ring, drawn as a flat pixel sprite
+ * that faces the camera (docs/ART-AND-SHOP.md section 2).
+ *
+ * Purely visual (CLAUDE.md rule 13). Nothing in here is read by src/game/:
+ * the hitbox is still PLAYER.radius and PLAYER.standHeight / slideHeight,
+ * whichever animal and ring are on.
+ *
+ * Sizes are in sprite pixels. `pixelsPerUnit` turns them into world units:
+ * at 16 the rider stands close to PLAYER.standHeight tall, and on a phone one
+ * sprite pixel lands on roughly two game pixels of the low-res pass, which
+ * keeps it close to the grid the rest of the scene is drawn on.
+ */
+export const RIDER = {
+  /** Sprite pixels per world unit. Lower = bigger rider on screen. */
+  pixelsPerUnit: 16,
+  /** One animal frame, square. */
+  animalPixels: 24,
+  /** One ring frame. Each half (back, front) gets a frame of this size. */
+  ringWidth: 32,
+  ringHeight: 20,
+  /** Ring rows above this are the back half (behind the animal), the rest the front. */
+  ringSplitRow: 10,
+  /** Spin frames per ring, drawn into the atlas. */
+  ringSpinFrames: 4,
+  /** How fast the ring turns through its spin frames, in frames per second. */
+  ringSpinRate: 5,
+  /** How far below the slide surface the ring's bottom edge sits, so it floats. */
+  ringSinkPixels: 2,
+  /** Which ring row the animal's bottom edge lines up with: it sits in the hole. */
+  animalBottomRow: 19,
+  /** The idle bob: how far, in sprite pixels, and how many bobs per second. */
+  bobPixels: 1,
+  bobRate: 2.2,
+  /** Lane-change lean: the top of the animal slides this many pixels sideways. */
+  leanShearPixels: 3,
+  /** Lane units per second of sideways motion before the rider leans. */
+  leanThreshold: 1.5,
+  /** A refused lane change leans the rider into the wall while the bump is above this. */
+  bumpLean: 0.3,
+  /** Duck: the animal sinks into the ring, and the whole rider drops a little. */
+  duckSinkPixels: 6,
+  duckDropPixels: 4,
+  /** Land: a quick squash into the ring when coming down from a jump. */
+  landTime: 0.14,
+  landSinkPixels: 3,
+  /** Height above the slide, in units, that counts as off the water. */
+  airborneHeight: 0.05,
+  /** Crash: the animal pops up out of the ring, this many pixels. */
+  crashLiftPixels: 7,
+  /** The power-up effects drawn around the rider (shield, magnet, boost). */
+  effectWidth: 44,
+  effectHeight: 40,
+  /** Frames per effect, and how fast they play, in frames per second. */
+  effectFrames: 2,
+  effectFrameRate: 6,
+  /** How far behind (-) or in front (+) of the rider each layer sits, in units. */
+  layerGap: 0.02,
+  /**
+   * The debug gallery (`?debug=1&gallery=1`): the zoom levels on offer, in
+   * screen pixels per sprite pixel, and the one it opens at: two pictures
+   * side by side on a phone. In the game the rider is drawn at about 4.
+   */
+  galleryZooms: [2, 3, 4] as const,
+  galleryZoom: 3,
+} as const;
+
+/**
  * The retro palette (docs/ART-AND-SHOP.md section 1).
  *
  * Every colour the render layer uses comes from here, so the look can be
@@ -674,6 +750,19 @@ export const PALETTE = {
   skyBlue: 0x6cc6e0,
   /** Text and highlights. */
   cream: 0xfbf3e4,
+
+  // --- Riders (section 2). Fur, food and rubber the base palette lacks. ---
+  /** The pig, the donut's icing. */
+  pink: 0xf2a0b5,
+  pinkDark: 0xc9708c,
+  /** The bear, pizza crust, the pineapple's edge. */
+  brown: 0x9a6b43,
+  brownDark: 0x6a4630,
+  /** The cat, the steering wheel. */
+  grey: 0xb3adc4,
+  greyDark: 0x7d7690,
+  /** Rubber and vinyl: the tractor tyre, the record, the penguin's back. */
+  charcoal: 0x46405a,
 
   // --- The older names, kept so nothing that reads them had to change. ---
   /** The clear colour behind the painted sky. */

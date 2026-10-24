@@ -41,6 +41,8 @@ export interface DebugInfo {
    */
   gamePixels: number;
   pixelScale: number;
+  /** The animal and ring being drawn, and the pose (docs/ART-AND-SHOP.md §2). */
+  rider: string;
 }
 
 /** What the controls are set to. */
@@ -189,6 +191,7 @@ export function createDebugOverlay(
     triangles: 0,
     gamePixels: 0,
     pixelScale: 1,
+    rider: '',
   };
 
   return {
@@ -226,6 +229,7 @@ export function createDebugOverlay(
         `chunk ${info.chunk ?? '-'}`,
         `power ${info.powerUps === '' ? '-' : info.powerUps}`,
         `pick  ${info.pickup}`,
+        `ride  ${info.rider}`,
         `ticks ${info.ticks}`,
         `seed  ${info.seed}`,
       ].join('\n');

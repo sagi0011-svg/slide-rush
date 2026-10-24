@@ -2,8 +2,9 @@
  * What survives between runs (SPEC 10).
  *
  * Best score, every coin ever collected (for the shop, later), whether the
- * tutorial has been seen, whether sound is muted and whether the shake and
- * flash of a hit are turned off.
+ * tutorial has been seen, whether sound is muted, whether the shake and
+ * flash of a hit are turned off, and which animal and ring the player rides
+ * (docs/ART-AND-SHOP.md §2).
  *
  * The storage itself is handed in rather than reached for, so the rules can be
  * tested without a browser. Nothing here may ever throw: private browsing,
@@ -24,6 +25,15 @@ export interface SaveData {
   muted: boolean;
   /** Whether vibration, the screen flash and the camera shake are off. */
   effectsOff: boolean;
+  /**
+   * The rider: which animal, in which ring (docs/ART-AND-SHOP.md §2). Kept
+   * as plain ids. The rules never look at them — they are only a picture
+   * (CLAUDE.md rule 13) — and whether an id is one the game can draw is
+   * settled by the render layer, which falls back to the starter for any it
+   * does not know.
+   */
+  equippedAnimal: string;
+  equippedRing: string;
 }
 
 /** The little bit of localStorage this needs; easy to stand in for in a test. */
@@ -33,7 +43,15 @@ export interface StorageLike {
 }
 
 export function defaultSave(): SaveData {
-  return { bestScore: 0, totalCoins: 0, tutorialSeen: false, muted: false, effectsOff: false };
+  return {
+    bestScore: 0,
+    totalCoins: 0,
+    tutorialSeen: false,
+    muted: false,
+    effectsOff: false,
+    equippedAnimal: SAVE.starterAnimal,
+    equippedRing: SAVE.starterRing,
+  };
 }
 
 function wholeNumber(value: unknown, fallback: number): number {
@@ -43,6 +61,13 @@ function wholeNumber(value: unknown, fallback: number): number {
 
 function flag(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
+}
+
+/** An id: any short, non-empty string. Anything else is replaced. */
+function id(value: unknown, fallback: string): string {
+  return typeof value === 'string' && value.length > 0 && value.length <= SAVE.maxIdLength
+    ? value
+    : fallback;
 }
 
 /**
@@ -69,6 +94,8 @@ export function parseSave(raw: string | null): SaveData {
     tutorialSeen: flag(data['tutorialSeen'], fresh.tutorialSeen),
     muted: flag(data['muted'], fresh.muted),
     effectsOff: flag(data['effectsOff'], fresh.effectsOff),
+    equippedAnimal: id(data['equippedAnimal'], fresh.equippedAnimal),
+    equippedRing: id(data['equippedRing'], fresh.equippedRing),
   };
 }
 

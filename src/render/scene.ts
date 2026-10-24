@@ -12,18 +12,18 @@
 import { Color, Fog, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
 import { CAMERA, LANES, PALETTE, PLAYER } from '../config';
 import { createQualityGovernor } from './quality';
-import { createBlobShadow, createLights, createPlayerMesh } from './factories';
+import { createBlobShadow, createLights } from './factories';
 import { createSlideTexture } from './textures';
 import { createTrack, type Track } from './track';
 import { createObstacleLayer, type ObstacleLayer, type ObstacleView } from './obstacle-view';
 import { createCoinLayer, type CoinLayer, type CoinView } from './coin-view';
 import { createPickupLayer, type PickupLayer, type PickupView } from './pickup-view';
-import { createShieldBubble } from './factories';
+import { createRider, type Rider, type RiderView } from './rider';
+import type { RiderPair } from './sprites';
 import { createChaseCamera, type ChaseCamera } from './camera';
 import { createHitboxLayer, type HitboxLayer } from './hitbox-view';
 import { createPixelPass, type PixelPass } from './pixel-pass';
 import { createSky, type Sky } from './sky';
-import { disposeMesh } from './materials';
 import { createScenery, type Scenery } from './scenery';
 import { createSplash, type Splash } from './splash';
 import { pixelCount } from './retro';
@@ -50,6 +50,8 @@ export interface Frame {
   pickup: PickupView;
   /** True while a shield is up, which draws the bubble (SPEC 9). */
   shielded: boolean;
+  /** True while a magnet is running, which draws its waves round the rider. */
+  magnetised: boolean;
   /** True while a boost is running, which widens the view (SPEC 2). */
   boosting: boolean;
   /** Run time, in seconds, which is what the coins spin to. */
@@ -84,10 +86,16 @@ export interface Renderer {
   readonly gamePixels: number;
   /** How many screen pixels wide one game pixel is (docs/ART-AND-SHOP.md §1). */
   readonly pixelScale: number;
+  /** The animal and ring being drawn, and what pose they are in (§2). */
+  readonly rider: Rider;
   dispose(): void;
 }
 
-export function createRenderer(canvas: HTMLCanvasElement): Renderer {
+/**
+ * @param canvas where to draw
+ * @param riderPair which animal in which ring to draw as the player (§2)
+ */
+export function createRenderer(canvas: HTMLCanvasElement, riderPair: RiderPair): Renderer {
   const renderer = new WebGLRenderer({
     canvas,
     // Off on purpose: the picture is deliberately made of hard pixel edges,
@@ -118,11 +126,22 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   const pickupLayer: PickupLayer = createPickupLayer(scene);
   const splash: Splash = createSplash(scene);
 
-  const shieldBubble = createShieldBubble();
-  scene.add(shieldBubble);
-
-  const player = createPlayerMesh();
-  scene.add(player);
+  // The animal in its ring, with the power-up effects drawn round it (§2).
+  const rider: Rider = createRider(scene, riderPair);
+  // Filled in every frame rather than rebuilt (rule 7).
+  const riderView: RiderView = {
+    x: 0,
+    groundY: 0,
+    height: 0,
+    laneOffset: 0,
+    sliding: false,
+    dead: false,
+    bump: 0,
+    shielded: false,
+    magnetised: false,
+    boosting: false,
+    frameSeconds: 0,
+  };
 
   const shadow = createBlobShadow();
   scene.add(shadow);
@@ -183,15 +202,22 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       const baseX = curveX(frame.distance) + across;
       const groundY = curveY(frame.distance);
 
-      // Squash the capsule into the low slide pose (SPEC 3).
-      const squash = frame.sliding ? PLAYER.slideHeight / PLAYER.standHeight : 1;
-      player.scale.set(1, squash, 1);
-      player.position.set(
-        baseX + bumpOffset * Math.sign(across === 0 ? 1 : across),
-        groundY + frame.height + (PLAYER.standHeight / 2) * squash,
-        0,
-      );
-      player.rotation.z = -frame.bump * 0.25 * Math.sign(across === 0 ? 1 : across);
+      // The rider: posed by what the player is doing, never the other way
+      // round (CLAUDE.md rule 13). It has no squash and no tilt — pixel art
+      // only moves by whole pixels — so the slide pose and the lean are
+      // frames of their own.
+      riderView.x = baseX + bumpOffset * Math.sign(across === 0 ? 1 : across);
+      riderView.groundY = groundY;
+      riderView.height = frame.height;
+      riderView.laneOffset = frame.laneOffset;
+      riderView.sliding = frame.sliding;
+      riderView.dead = frame.dead;
+      riderView.bump = frame.bump;
+      riderView.shielded = frame.shielded;
+      riderView.magnetised = frame.magnetised;
+      riderView.boosting = frame.boosting;
+      riderView.frameSeconds = frame.frameSeconds;
+      rider.update(riderView);
 
       // Coming down from a jump throws up a splash of square pixels (§1).
       // Purely decorative: it watches the height it was given and nothing else.
@@ -210,12 +236,6 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       shadow.scale.setScalar(1 - lift * 0.45);
       shadow.material.opacity = 0.3 * (1 - lift * 0.6);
 
-      // The shield bubble rides with the player.
-      shieldBubble.visible = frame.shielded;
-      if (frame.shielded) {
-        shieldBubble.position.set(baseX, groundY + frame.height + PLAYER.standHeight / 2, 0);
-      }
-
       chase.update(
         frame.distance,
         frame.laneOffset,
@@ -232,6 +252,9 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
         camera.position.x += Math.sin(t) * strength;
         camera.position.y += Math.cos(t * 1.7) * strength * 0.6;
       }
+
+      // The rider turns square to the camera, so it too goes after it.
+      rider.faceCamera(camera);
 
       // The hills ride with the camera, so they must be moved after it.
       sky.update(camera);
@@ -260,6 +283,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     get pixelScale() {
       return pixelPass.pixelScale;
     },
+    rider,
     dispose() {
       track.dispose();
       scenery.dispose();
@@ -270,12 +294,8 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       sky.dispose();
       hitboxLayer?.dispose();
       pixelPass.dispose();
-      scene.remove(shieldBubble);
-      shieldBubble.geometry.dispose();
-      shieldBubble.material.dispose();
-      scene.remove(player, shadow);
-      // disposeMesh, so the outline hung off the player goes with it.
-      disposeMesh(player);
+      rider.dispose();
+      scene.remove(shadow);
       shadow.geometry.dispose();
       shadow.material.dispose();
       texture.dispose();

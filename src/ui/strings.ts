@@ -48,6 +48,50 @@ export const STRINGS = {
     keys: 'keys: 1 2 3 power-ups, I invincible, H hitboxes',
   },
 
+  /** The animals' names (docs/ART-AND-SHOP.md §2). */
+  animals: {
+    frog: 'Frog',
+    penguin: 'Penguin',
+    cat: 'Cat',
+    bear: 'Bear',
+    duck: 'Duck',
+    pig: 'Pig',
+  },
+
+  /** The rings' names (§2). */
+  rings: {
+    tube: 'Classic Tube',
+    tractor: 'Tractor Tyre',
+    hoop: 'Hula Hoop',
+    donut: 'Donut',
+    pizza: 'Pizza',
+    pineapple: 'Pineapple Ring',
+    watermelon: 'Watermelon',
+    record: 'Vinyl Record',
+    onion: 'Onion Ring',
+    wheel: 'Steering Wheel',
+    toilet: 'Toilet Seat',
+  },
+
+  /** The rider gallery, `?debug=1&gallery=1` (§2). */
+  gallery: {
+    title: 'Rider gallery',
+    pose: 'pose',
+    effect: 'effect',
+    none: 'none',
+    zoom: 'zoom',
+    animate: 'animate',
+    poses: {
+      idle: 'idle',
+      leanLeft: 'lean ←',
+      leanRight: 'lean →',
+      jump: 'jump',
+      duck: 'duck',
+      land: 'land',
+      crash: 'crash',
+    },
+  },
+
   /** The three first-run prompts (SPEC 11). */
   tutorial: {
     move: 'Swipe left or right to change lane',

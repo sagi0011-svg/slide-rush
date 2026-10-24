@@ -35,6 +35,8 @@ import { createRenderer, type Frame, type Renderer } from './render/scene';
 import { frameAlpha, lerp } from './render/interpolate';
 import { createAudioManager } from './audio/manager';
 import { createDebugOverlay, isDebugEnabled, type DebugInfo } from './debug/overlay';
+import { createGallery, isGalleryEnabled } from './debug/gallery';
+import { resolveRider } from './render/sprites';
 import { createDebugTweaks, setSpeedScale, setTierOverride } from './game/debug-tweaks';
 import { collectHitboxes, createHitboxList } from './game/hitboxes';
 import type { HudValues } from './ui/hud';
@@ -55,6 +57,12 @@ function showMessage(text: string): void {
 }
 
 function boot(): void {
+  // The rider gallery replaces the game entirely (docs/ART-AND-SHOP.md §2).
+  if (isGalleryEnabled()) {
+    createGallery(document.body);
+    return;
+  }
+
   const canvas = requireElement<HTMLCanvasElement>('game-canvas');
 
   // A seed can be forced with ?seed=123 so a run can be reproduced exactly.
@@ -91,7 +99,12 @@ function boot(): void {
 
   let renderer: Renderer;
   try {
-    renderer = createRenderer(canvas);
+    // The equipped animal and ring, falling back to the free starters for any
+    // id this build does not know (§2). Only ever a picture (rule 13).
+    renderer = createRenderer(
+      canvas,
+      resolveRider(save.data.equippedAnimal, save.data.equippedRing),
+    );
   } catch (error) {
     console.error('Slide Rush: could not start WebGL', error);
     showMessage(STRINGS.webglUnsupported);
@@ -143,6 +156,7 @@ function boot(): void {
     coins: state.spawner.coins,
     pickup: state.spawner.pickup,
     shielded: false,
+    magnetised: false,
     boosting: false,
     elapsed: 0,
     shakeTrigger: 0,
@@ -278,6 +292,8 @@ function boot(): void {
     info.triangles = renderer.triangles;
     info.gamePixels = renderer.gamePixels;
     info.pixelScale = renderer.pixelScale;
+    const { rider } = renderer;
+    info.rider = `${rider.pair.animal}/${rider.pair.ring} ${rider.pose}`;
   };
 
   let lastFrameMs = performance.now();
@@ -339,6 +355,7 @@ function boot(): void {
     frame.bump = player.bump;
     frame.elapsed = state.elapsed;
     frame.shielded = isActive(state.powerUps, 'shield');
+    frame.magnetised = isActive(state.powerUps, 'magnet');
     frame.boosting = isActive(state.powerUps, 'boost');
     frame.shakeTrigger = state.shakeTrigger;
     frame.shakeEnabled = feedback.enabled;

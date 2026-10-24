@@ -20,6 +20,7 @@ import {
 } from 'three';
 import { LANES, PALETTE, RETRO, TRACK } from '../config';
 import type { PowerUpType } from '../game/powerups';
+import { ATLAS_SIZE, atlasEntries, SPRITE_LEGEND } from './sprites';
 
 /** A palette colour as CSS, for the 2D canvas. */
 export function colorToCss(hex: number): string {
@@ -416,4 +417,25 @@ export function createPickupIconTexture(type: PowerUpType): CanvasTexture {
     r: PALETTE.red,
   });
   return toTexture(ctx);
+}
+
+/**
+ * Paints every rider frame — six animals, eleven rings in every spin frame,
+ * three power-up effects — into one canvas, laid out as sprites/atlas.ts says
+ * (docs/ART-AND-SHOP.md §2). Done once, at startup.
+ *
+ * The sprites' dark rims are part of their pixel maps, like the coin's and
+ * the pickup icons': a hull round a flat quad would only ever show on one side.
+ */
+export function paintRiderAtlas(): CanvasRenderingContext2D {
+  const ctx = pixelCanvas(ATLAS_SIZE.width, ATLAS_SIZE.height);
+  for (const entry of atlasEntries()) {
+    drawPixelMap(ctx, entry.rows, SPRITE_LEGEND, entry.cell.x, entry.cell.y);
+  }
+  return ctx;
+}
+
+/** The rider atlas as a texture: nearest filtering, no mipmaps, like every other. */
+export function createRiderAtlasTexture(): CanvasTexture {
+  return toTexture(paintRiderAtlas());
 }

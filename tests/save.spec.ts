@@ -48,6 +48,8 @@ describe('parseSave (SPEC 10)', () => {
       tutorialSeen: true,
       muted: true,
       effectsOff: true,
+      equippedAnimal: 'bear',
+      equippedRing: 'toilet',
     };
     expect(parseSave(JSON.stringify(data))).toEqual(data);
   });
@@ -91,6 +93,57 @@ describe('parseSave (SPEC 10)', () => {
     const parsed = parseSave(JSON.stringify({ bestScore: 10, somethingNew: { a: 1 } }));
     expect(parsed.bestScore).toBe(10);
     expect(parsed).toEqual({ ...defaultSave(), bestScore: 10 });
+  });
+});
+
+describe('the equipped rider (docs/ART-AND-SHOP.md section 2)', () => {
+  it('starts on the free starters: a frog in a tube', () => {
+    expect(defaultSave().equippedAnimal).toBe('frog');
+    expect(defaultSave().equippedRing).toBe('tube');
+  });
+
+  it('loads a save from before riders existed without losing anything', () => {
+    const old = {
+      bestScore: 900,
+      totalCoins: 321,
+      tutorialSeen: true,
+      muted: true,
+      effectsOff: false,
+    };
+    const parsed = parseSave(JSON.stringify(old));
+    expect(parsed).toEqual({ ...old, equippedAnimal: 'frog', equippedRing: 'tube' });
+  });
+
+  it('falls back to the starters for ids that are not strings, empty or absurd', () => {
+    for (const bad of [42, null, true, '', 'x'.repeat(SAVE.maxIdLength + 1), ['frog'], {}]) {
+      const parsed = parseSave(JSON.stringify({ equippedAnimal: bad, equippedRing: bad }));
+      expect(parsed.equippedAnimal, JSON.stringify(bad)).toBe('frog');
+      expect(parsed.equippedRing, JSON.stringify(bad)).toBe('tube');
+    }
+  });
+
+  it('keeps an id it does not know: drawing the starter instead is up to the renderer', () => {
+    // A save from a newer version may name a ring this build has never heard
+    // of. Throwing it away here would lose it for good on the next write.
+    const parsed = parseSave(JSON.stringify({ equippedAnimal: 'dragon', equippedRing: 'ufo' }));
+    expect(parsed.equippedAnimal).toBe('dragon');
+    expect(parsed.equippedRing).toBe('ufo');
+  });
+
+  it('remembers the pair across a reload', () => {
+    const storage = fakeStorage();
+    createSaveStore(storage).update({ equippedAnimal: 'duck', equippedRing: 'pizza' });
+    const reloaded = createSaveStore(storage).data;
+    expect(reloaded.equippedAnimal).toBe('duck');
+    expect(reloaded.equippedRing).toBe('pizza');
+  });
+
+  it('keeps the pair when a run ends', () => {
+    const store = createSaveStore(fakeStorage());
+    store.update({ equippedAnimal: 'pig', equippedRing: 'record' });
+    const after = store.finishRun(500, 20);
+    expect(after.equippedAnimal).toBe('pig');
+    expect(after.equippedRing).toBe('record');
   });
 });
 
