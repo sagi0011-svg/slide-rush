@@ -8,6 +8,8 @@ import type { ItemKind } from '../game/shop';
 export const STRINGS = {
   title: 'Slide Rush',
   tagline: 'How far can you get?',
+  /** The creator's credit, at the foot of the title screen. */
+  credit: 'by Sagi G Haim (SaG)',
   loading: 'Loading…',
   webglUnsupported: 'This browser cannot run 3D graphics (WebGL). Try Chrome, Safari or Firefox.',
   /** Shown over everything while a phone is held sideways. */

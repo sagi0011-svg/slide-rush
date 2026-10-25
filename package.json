@@ -4,6 +4,7 @@
   "version": "0.2.0",
   "type": "module",
   "description": "Endless water-slide runner for the browser",
+  "author": "Sagi G Haim (SaG)",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

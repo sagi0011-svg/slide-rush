@@ -513,6 +513,18 @@ body {
  */
 
 /* The coins in hand: on the title screen, and in the shop's own bar. */
+/*
+ * The creator's credit, at the foot of the title screen: small and quiet, so
+ * it signs the screen without competing with the Play button.
+ */
+.screen .credit {
+  margin: 14px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--slide-edge);
+  text-shadow: var(--text-outline-thin);
+}
+
 .coin-balance {
   margin: 0;
   display: flex;

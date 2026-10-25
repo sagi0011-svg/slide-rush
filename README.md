@@ -1,5 +1,7 @@
 # Slide Rush
 
+*Created by **Sagi G Haim (SaG)**.*
+
 An endless runner set on a water-park slide, in the spirit of Subway Surfers. Ride an animal in a funny ring, switch between 3 lanes, jump over mines, duck under arches, grab coins and power-ups, and see how far you get. Then spend the coins in the shop on a new animal or ring.
 
 <p>

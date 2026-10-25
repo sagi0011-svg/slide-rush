@@ -91,6 +91,7 @@ export function createScreens(handlers: ScreensHandlers): Screens {
   // Fixed text, written once.
   setText('start-title', STRINGS.title);
   setText('start-tagline', STRINGS.tagline);
+  setText('start-credit', STRINGS.credit);
   setText('start-play', STRINGS.play);
   setText('paused-title', STRINGS.paused);
   setText('paused-resume', STRINGS.resume);
