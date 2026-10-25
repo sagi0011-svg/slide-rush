@@ -53,8 +53,9 @@ bomb with a red light; coins are chunky yellow pixel coins.
 - `src/game/` never sees the style.
 - **Switching applies immediately.** The style is only ever changed on the
   Settings screen, never during a run, so the renderer is thrown away and built
-  again on the spot, on a fresh canvas (antialias can only be chosen when a
-  canvas's WebGL context is created).
+  again on the spot, on the same canvas. Classic 3D's smooth edges come from
+  multisampling the render target the scene is drawn into, so the canvas
+  itself never has to be replaced.
 
 ## 3. Settings screen
 
@@ -87,6 +88,18 @@ bomb with a red light; coins are chunky yellow pixel coins.
   (`src/render/quality.ts`), which lowers the resolution on a phone that cannot
   keep up. Desktop fps is capped at 60 and proves nothing, so this is checked
   on Sagi's phone.
+
+**Measured** (debug overlay, a 390×844 phone at 3×, during a run):
+
+| Look | Pixels drawn per frame | Draw calls |
+|---|---|---|
+| Sunset Pixel | 67k | 36 |
+| Retro Pixel | 38k (43% fewer, and unlit) | 36 |
+| Classic 3D | 1,081k | 29 |
+
+Sunset Pixel was compared frame by frame with the `before-visual-styles` build
+(same seed, the clock stepped by hand): 0 of 518,400 pixels differ on the
+title and at 1, 3 and 5 seconds into a run.
 
 ## 6. Milestone
 

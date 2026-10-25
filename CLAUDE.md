@@ -43,6 +43,15 @@ src/
 tests/               vitest specs mirroring src/game
 ```
 
+## Theme system (M13, `docs/VISUAL-STYLES.md`)
+The player picks one of three looks in Settings: `sunset` (Sunset Pixel, the v0.2 look and the default), `classic` (Classic 3D) and `pixel` (Retro Pixel).
+- **One saved field**, `visualStyle` in `src/game/save.ts`. Unknown values fall back to `sunset`. Nothing else in `src/game/` may read it; `tests/cosmetics.spec.ts` checks both that and that a seeded run is identical in every look.
+- **All per-look values live in `THEMES` in `src/config.ts`**: the palette (every key of `PALETTE`), `pixelated`, pixel sizes, `shading` (`toon` / `lit` / `flat`), `outlines`, `smoothTextures`, `antialias`, `skyDither`, `mine` (`buoy` / `bomb`) and `spriteRecolor`. A new look is a new entry there plus its CSS, not new `if`s.
+- **`src/render/theme.ts` is the only render code that knows which look is on.** Render code asks it for `palette()` or `theme()` *when it builds something* (materials, textures, geometry), never per frame and never by comparing style names. Use `surfaceMaterial()` for solid surfaces and `addOutline()` / `createOutlinedInstances()` for rims; they follow the theme.
+- **Switching rebuilds the renderer** (`applyVisualStyle` in `src/main.ts`): dispose, `setVisualStyle`, `createRenderer` on the same canvas. That is safe because Settings only opens from the title (`src/game/flow.ts`), so no run is ever drawn across a switch. Antialiasing is multisampling on the render target, so the canvas never needs replacing.
+- **The UI follows `<html data-style="…">`.** `src/ui/styles.css` is the v0.2 UI, used by `sunset` and `classic` unchanged. `src/ui/style-pixel.css` overrides it only under `[data-style='pixel']`. CSS cannot import TypeScript, so each stylesheet repeats its palette, and `tests/config.spec.ts` keeps the copies in step with `THEMES`.
+- **Sunset Pixel must stay pixel-identical to v0.2.** Check any change to shared render code by comparing frames against the `before-visual-styles` tag with the clock taken over (step `requestAnimationFrame` by hand, hide the HTML, compare the canvas).
+
 ## Commands
 - `npm run dev` — dev server (use `--host` to test on a phone on the same Wi-Fi)
 - `npm test` — unit tests

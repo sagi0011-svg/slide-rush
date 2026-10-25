@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { createDebugTweaks } from '../src/game/debug-tweaks';
 import { collectHitboxes, createHitboxList } from '../src/game/hitboxes';
 import type { GameAction } from '../src/game/input-actions';
-import { createSaveStore, type StorageLike } from '../src/game/save';
+import { createSaveStore, type SaveData, type StorageLike } from '../src/game/save';
 import { displayScore } from '../src/game/scoring';
 import { applyAction, createRunState, stepRun } from '../src/game/state';
 import { ANIMAL_IDS, resolveRider, RING_IDS } from '../src/render/sprites';
+import { SAVE, VISUAL_STYLES } from '../src/config';
+import { setVisualStyle } from '../src/render/theme';
 
 /**
  * Cosmetics are visual only (CLAUDE.md rule 13, docs/ART-AND-SHOP.md
@@ -16,6 +18,9 @@ import { ANIMAL_IDS, resolveRider, RING_IDS } from '../src/render/sprites';
  * ending on the same tick. This plays one scripted run per pair, built
  * exactly the way the game builds it from the save, and asks for every one of
  * the 66 records to be identical, byte for byte.
+ *
+ * The same holds for the three visual styles (docs/VISUAL-STYLES.md): a look
+ * is a picture too, so the run has to be the same in each of them.
  */
 
 function memoryStorage(): StorageLike {
@@ -34,12 +39,13 @@ const SEED = 20261024;
 const TICKS = 60 * 25;
 
 /** Plays one run with this pair equipped and records everything that matters. */
-function playWith(animal: string, ring: string): string {
+function playWith(animal: string, ring: string, changes: Partial<SaveData> = {}): string {
   const save = createSaveStore(memoryStorage());
-  save.update({ equippedAnimal: animal, equippedRing: ring, tutorialSeen: true });
-  // The renderer would draw this pair; the run below must not care.
+  save.update({ equippedAnimal: animal, equippedRing: ring, tutorialSeen: true, ...changes });
+  // The renderer would draw this pair, in this look; the run below must not care.
   const pair = resolveRider(save.data.equippedAnimal, save.data.equippedRing);
   expect(pair).toEqual({ animal, ring });
+  setVisualStyle(save.data.visualStyle);
 
   // Built the way src/main.ts builds a run from the save.
   const state = createRunState(SEED, {
@@ -91,6 +97,15 @@ describe('cosmetics are visual only (rule 13)', () => {
     }
   });
 
+  it('plays the very same run in every visual style', () => {
+    const reference = playWith('frog', 'tube');
+    for (const visualStyle of VISUAL_STYLES) {
+      const run = playWith('frog', 'tube', { visualStyle });
+      expect(run === reference, `${visualStyle} played a different run`).toBe(true);
+    }
+    setVisualStyle(SAVE.defaultVisualStyle);
+  });
+
   it('keeps the game rules from ever looking at the sprites or the equipped pair', () => {
     // The structural half of the proof: nothing in src/game/ imports the
     // render layer, and only the save itself knows the equipped fields exist.
@@ -106,6 +121,8 @@ describe('cosmetics are visual only (rule 13)', () => {
       expect(text.includes('/render/'), `${path} imports from src/render`).toBe(false);
       if (path.endsWith('/save.ts')) continue;
       expect(/equipped(Animal|Ring)/.test(text), `${path} reads the equipped pair`).toBe(false);
+      // Nor the look (docs/VISUAL-STYLES.md section 2).
+      expect(/visualStyle|VISUAL_STYLES|THEMES/.test(text), `${path} reads the look`).toBe(false);
     }
   });
 });
