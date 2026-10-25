@@ -1,5 +1,6 @@
 /**
- * The screens the player reads: title, pause and game over (SPEC 11).
+ * The screens the player reads: title, pause, game over and the shop
+ * (SPEC 11, docs/ART-AND-SHOP.md section 3).
  *
  * Every piece of text comes from src/ui/strings.ts, and every button reports
  * back as a flow event rather than doing anything itself, so the rules of
@@ -12,7 +13,10 @@ import { STRINGS } from './strings';
 
 export interface GameOverFacts {
   score: number;
+  /** Coins picked up in this run. */
   coins: number;
+  /** Coins in hand now, this run included (docs/ART-AND-SHOP.md section 3). */
+  totalCoins: number;
   bestScore: number;
   /** True when this run beat the best score, for the badge. */
   isNewBest: boolean;
@@ -36,10 +40,12 @@ export interface Screens {
 /** Every button, and the flow event it stands for. */
 const BUTTONS: ReadonlyArray<[string, FlowEvent]> = [
   ['start-play', 'play'],
+  ['start-shop', 'shop'],
   ['paused-resume', 'resume'],
   ['paused-restart', 'restart'],
   ['paused-home', 'home'],
   ['over-again', 'restart'],
+  ['over-shop', 'shop'],
   ['over-home', 'home'],
   ['pause-button', 'pause'],
 ];
@@ -49,6 +55,7 @@ const SCREEN_FOR_PHASE: Readonly<Record<AppPhase, string | null>> = {
   playing: null,
   paused: 'screen-paused',
   gameOver: 'screen-over',
+  shop: 'screen-shop',
 };
 
 function byId<T extends HTMLElement>(id: string): T | null {
@@ -136,9 +143,10 @@ export function createScreens(handlers: ScreensHandlers): Screens {
       if (pauseButton !== null) pauseButton.hidden = phase !== 'playing';
     },
 
-    setGameOver({ score, coins, bestScore, isNewBest }) {
+    setGameOver({ score, coins, totalCoins, bestScore, isNewBest }) {
       setText('over-score', formatNumber(score));
       setText('over-coins', formatNumber(coins));
+      setText('over-total', formatNumber(totalCoins));
       setText('over-best', formatNumber(bestScore));
       const badge = byId('over-newbest');
       if (badge !== null) badge.hidden = !isNewBest;

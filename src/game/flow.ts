@@ -6,7 +6,7 @@
  * at the title, playing, paused, or reading their score.
  */
 
-export type AppPhase = 'start' | 'playing' | 'paused' | 'gameOver';
+export type AppPhase = 'start' | 'playing' | 'paused' | 'gameOver' | 'shop';
 
 /** Everything that can move the game from one screen to another. */
 export type FlowEvent =
@@ -15,6 +15,7 @@ export type FlowEvent =
   | 'resume'
   | 'restart' // Restart from the pause screen, or Play Again
   | 'died' // the death beat has finished
+  | 'shop' // the Shop button, from the title or the game over screen
   | 'home'
   | 'lostFocus'; // the tab or app went away
 
@@ -48,8 +49,13 @@ export function nextPhase(phase: AppPhase, event: FlowEvent): AppPhase {
       return phase === 'paused' || phase === 'gameOver' ? 'playing' : phase;
     case 'died':
       return phase === 'playing' ? 'gameOver' : phase;
+    case 'shop':
+      // The shop opens from the title and from the game over screen
+      // (docs/ART-AND-SHOP.md section 3), never in the middle of a run.
+      return phase === 'start' || phase === 'gameOver' ? 'shop' : phase;
     case 'home':
-      return phase === 'gameOver' || phase === 'paused' ? 'start' : phase;
+      // Back out of the shop, as the phone's own back button does.
+      return phase === 'gameOver' || phase === 'paused' || phase === 'shop' ? 'start' : phase;
   }
 }
 

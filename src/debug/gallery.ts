@@ -2,57 +2,26 @@
  * The rider gallery, `?debug=1&gallery=1` (docs/ART-AND-SHOP.md §2).
  *
  * Every animal in every ring, side by side, so each pair can be checked at
- * phone size before anyone has to buy it. It draws straight from the same
- * atlas, the same cells and the same pose offsets the game uses, so what
+ * phone size before anyone has to buy it. It draws through the one rider
+ * painter in src/render/rider-preview.ts, which the shop uses too, so what
  * shows here is what the game would draw — including the bottom of the ring
  * disappearing under the water.
  *
  * The game itself is not started on this page: the gallery is all there is.
  */
 
-import { PALETTE, RIDER } from '../config';
+import { RIDER } from '../config';
 import type { PowerUpType } from '../game/powerups';
 import { POWERUP_TYPES } from '../game/powerups';
-import {
-  effectFrame,
-  poseLayout,
-  ringSpinFrame,
-  RIDER_LAYOUT,
-  RIDER_POSES,
-  type RiderPose,
-} from '../render/rider-pose';
-import {
-  ANIMAL_IDS,
-  animalCell,
-  EFFECT_IN_FRONT,
-  effectCell,
-  RING_IDS,
-  ringCell,
-  type AnimalId,
-  type Cell,
-  type RingId,
-} from '../render/sprites';
-import { colorToCss, paintRiderAtlas } from '../render/textures';
+import { RIDER_POSES, type RiderPose } from '../render/rider-pose';
+import { createRiderPainter, PREVIEW_SIZE } from '../render/rider-preview';
+import { ANIMAL_IDS, RING_IDS, type AnimalId, type RingId } from '../render/sprites';
 import { STRINGS } from '../ui/strings';
 
 export function isGalleryEnabled(search: string = window.location.search): boolean {
   const params = new URLSearchParams(search);
   return params.get('debug') === '1' && params.get('gallery') === '1';
 }
-
-/**
- * One picture's size, in sprite pixels: room for the widest effect, and for
- * the animal popping up out of its ring in a crash.
- */
-const VIEW = {
-  width: Math.max(RIDER.effectWidth, RIDER_LAYOUT.width),
-  height: Math.max(RIDER.effectHeight, RIDER_LAYOUT.height + RIDER.crashLiftPixels) + 4,
-};
-/** Where the rider's top-left corner sits in a picture. */
-const ORIGIN = {
-  x: Math.floor((VIEW.width - RIDER_LAYOUT.width) / 2),
-  y: VIEW.height - RIDER_LAYOUT.height,
-};
 
 interface Tile {
   animal: AnimalId;
@@ -61,7 +30,8 @@ interface Tile {
 }
 
 export function createGallery(parent: HTMLElement): void {
-  const atlas = paintRiderAtlas().canvas;
+  // The same painter the shop draws its cards with (§2).
+  const painter = createRiderPainter();
 
   const root = document.createElement('div');
   root.id = 'gallery';
@@ -162,11 +132,8 @@ export function createGallery(parent: HTMLElement): void {
     for (const ring of RING_IDS) {
       const figure = document.createElement('figure');
       const canvas = document.createElement('canvas');
-      canvas.width = VIEW.width;
-      canvas.height = VIEW.height;
-      const ctx = canvas.getContext('2d');
+      const ctx = painter.prepare(canvas, zoom);
       if (ctx === null) continue;
-      ctx.imageSmoothingEnabled = false;
       const caption = document.createElement('figcaption');
       caption.textContent = STRINGS.rings[ring];
       figure.append(canvas, caption);
@@ -177,79 +144,8 @@ export function createGallery(parent: HTMLElement): void {
 
   function sizeTiles(): void {
     for (const tile of tiles) {
-      tile.ctx.canvas.style.width = `${VIEW.width * zoom}px`;
-      tile.ctx.canvas.style.height = `${VIEW.height * zoom}px`;
-    }
-  }
-
-  /** Copies one atlas cell onto a picture, mirrored if asked. */
-  const blit = (
-    ctx: CanvasRenderingContext2D,
-    cell: Cell,
-    x: number,
-    y: number,
-    mirror = false,
-  ) => {
-    if (!mirror) {
-      ctx.drawImage(atlas, cell.x, cell.y, cell.width, cell.height, x, y, cell.width, cell.height);
-      return;
-    }
-    ctx.save();
-    ctx.translate(x + cell.width, y);
-    ctx.scale(-1, 1);
-    ctx.drawImage(atlas, cell.x, cell.y, cell.width, cell.height, 0, 0, cell.width, cell.height);
-    ctx.restore();
-  };
-
-  const sky = colorToCss(PALETTE.skyBottom);
-  const water = colorToCss(PALETTE.water);
-  // Where the slide's surface is in a picture: just above the ring's bottom.
-  const waterline = ORIGIN.y + RIDER_LAYOUT.height - RIDER.ringSinkPixels;
-
-  function drawTile(tile: Tile, clock: number): void {
-    const { ctx } = tile;
-    const layout = poseLayout(pose, clock);
-    const spin = ringSpinFrame(clock);
-    const loop = effectFrame(clock);
-    const riderY = ORIGIN.y + layout.riderDy;
-
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, VIEW.width, VIEW.height);
-
-    // The same layers, in the same order, as the rider in the game.
-    const effectX = Math.floor((VIEW.width - RIDER.effectWidth) / 2);
-    const effectY = ORIGIN.y + Math.floor(RIDER_LAYOUT.height / 2 - RIDER.effectHeight / 2);
-    if (effect !== null && !EFFECT_IN_FRONT[effect]) {
-      blit(ctx, effectCell(effect, loop), effectX, effectY);
-    }
-    blit(
-      ctx,
-      ringCell(tile.ring, spin, 'back'),
-      ORIGIN.x + RIDER_LAYOUT.ringX,
-      riderY + RIDER_LAYOUT.ringY,
-    );
-    blit(
-      ctx,
-      animalCell(tile.animal, layout.frame),
-      ORIGIN.x + RIDER_LAYOUT.animalX,
-      riderY + RIDER_LAYOUT.animalY + layout.animalDy,
-      layout.mirror,
-    );
-    blit(
-      ctx,
-      ringCell(tile.ring, spin, 'front'),
-      ORIGIN.x + RIDER_LAYOUT.ringX,
-      riderY + RIDER_LAYOUT.ringY,
-    );
-    if (effect !== null && EFFECT_IN_FRONT[effect]) {
-      blit(ctx, effectCell(effect, loop), effectX, effectY);
-    }
-
-    // The water hides whatever is under its surface, as the slide does. A
-    // jump would lift the rider clear of it, so a jump is drawn in the air.
-    if (pose !== 'jump') {
-      ctx.fillStyle = water;
-      ctx.fillRect(0, waterline, VIEW.width, VIEW.height - waterline);
+      tile.ctx.canvas.style.width = `${PREVIEW_SIZE.width * zoom}px`;
+      tile.ctx.canvas.style.height = `${PREVIEW_SIZE.height * zoom}px`;
     }
   }
 
@@ -258,10 +154,14 @@ export function createGallery(parent: HTMLElement): void {
   let last = performance.now();
   let drawnKey = '';
   function redraw(force = false): void {
-    const key = `${poseLayout(pose, clock).animalDy}/${ringSpinFrame(clock)}/${effectFrame(clock)}`;
+    // A jump would lift the rider clear of the water, so it is drawn in the air.
+    const options = { pose, effect, clock, background: 'sky', water: pose !== 'jump' } as const;
+    const key = painter.frameKey(options);
     if (!force && key === drawnKey) return;
     drawnKey = key;
-    for (const tile of tiles) drawTile(tile, clock);
+    for (const tile of tiles) {
+      painter.draw(tile.ctx, { animal: tile.animal, ring: tile.ring }, options);
+    }
   }
 
   const tick = (now: number): void => {

@@ -1,5 +1,5 @@
 /**
- * The ten placeholder effects (SPEC 12), generated rather than recorded.
+ * The eleven placeholder effects (SPEC 12), generated rather than recorded.
  *
  * Each one is a few lines of arithmetic over the numbers in `AUDIO.sfx`, so
  * there is no download, no licence to worry about (ASSETS.md) and no loading
@@ -186,6 +186,32 @@ function renderUiTap(sampleRate: number): Samples {
 }
 
 /**
+ * A little till chime: three rising notes, each ringing on to the end
+ * (docs/ART-AND-SHOP.md section 3). Brighter and longer than the power-up
+ * row, so buying something sounds like an event and not like a pickup.
+ */
+function renderPurchase(sampleRate: number): Samples {
+  const { duration, gain, notes } = AUDIO.sfx.purchase;
+  const data = buffer(duration, sampleRate);
+  // One slot more than there are notes, so the last one still has room to ring.
+  const slot = duration / (notes.length + 1);
+  for (let n = 0; n < notes.length; n += 1) {
+    const frequency = notes[n] ?? 0;
+    const start = Math.round(n * slot * sampleRate);
+    // Every note fades out exactly at the end, so the chime never clicks.
+    const ring = duration - n * slot;
+    for (let i = start; i < data.length; i += 1) {
+      const t = (i - start) / sampleRate;
+      const phase = frequency * t;
+      const wave = Math.sin(TAU * phase) + 0.3 * Math.sin(TAU * 2 * phase);
+      data[i] = (data[i] ?? 0) + wave * pluck(t, ring, 0.004, 3);
+    }
+  }
+  normalize(data, gain);
+  return data;
+}
+
+/**
  * Renders one effect into a buffer of mono samples in -1..1.
  *
  * Called once per effect when the sound starts up, and never while playing.
@@ -217,5 +243,7 @@ export function renderSfx(name: SfxName, sampleRate: number): Samples {
       return renderShieldPop(rate);
     case 'uiTap':
       return renderUiTap(rate);
+    case 'purchase':
+      return renderPurchase(rate);
   }
 }

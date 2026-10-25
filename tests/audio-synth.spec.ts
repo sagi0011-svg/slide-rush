@@ -92,9 +92,9 @@ describe('synth building blocks', () => {
   });
 });
 
-describe('the ten effects (SPEC 12)', () => {
+describe('the eleven effects (SPEC 12, docs/ART-AND-SHOP.md section 3)', () => {
   it('renders every one of them', () => {
-    expect(SFX_NAMES).toHaveLength(10);
+    expect(SFX_NAMES).toHaveLength(11);
     expect([...SFX_NAMES].sort()).toEqual(
       [
         'coin',
@@ -103,6 +103,7 @@ describe('the ten effects (SPEC 12)', () => {
         'lane',
         'powerUp',
         'powerUpEnd',
+        'purchase',
         'shieldPop',
         'slide',
         'stumble',

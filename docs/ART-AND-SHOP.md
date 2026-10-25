@@ -101,7 +101,7 @@ The rider must read clearly at phone size: test every animal × ring pair in a d
 
 **Screens**
 - Title screen: coin balance top-right, **Shop** button under Play, the equipped rider shown big in the middle, idling.
-- **Shop screen**: two tabs — Animals / Rings. Grid of cards: pixel preview, name, price with coin icon or "Owned" / "Equipped". Tap card → big preview **of that item combined with the currently equipped other part** (so you see "bear in a toilet seat" before buying) → button Buy / Equip / Not enough coins (shows how many missing). Buy asks a quick confirm. Purchase = coin burst + sound.
+- **Shop screen**: two tabs — Animals / Rings. Grid of cards: pixel preview, name, price with coin icon or "Owned" / "Equipped". Tap card → big preview **of that item combined with the currently equipped other part** (so you see "bear in a toilet seat" before buying) → button Buy / Equip / Not enough coins (shows how many missing). Buy asks a quick confirm. Purchase = coin burst + sound. What you just bought goes on straight away (M11), so buying is never followed by a second tap to wear it; `buy` and `equip` stay separate in `shop.ts`.
 - Game over: show coins earned this run + new total, and a "Shop" button.
 - All strings in `src/ui/strings.ts`. Works in portrait, respects safe areas, back button / back gesture returns to title.
 

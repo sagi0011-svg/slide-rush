@@ -372,6 +372,7 @@ export const AUDIO = {
     powerUpEnd: 0.12,
     shieldPop: 0.12,
     uiTap: 0.06,
+    purchase: 0.2,
   },
   /**
    * At most this many coin sounds out of a single frame, however many coins a
@@ -387,8 +388,9 @@ export const AUDIO = {
     maxSteps: 8,
   },
   /**
-   * The ten placeholder effects (SPEC 12). `gain` is the peak of the rendered
-   * sound, `from`/`to` are the ends of a sweep, `notes` are fixed pitches.
+   * The eleven placeholder effects (SPEC 12). `gain` is the peak of the
+   * rendered sound, `from`/`to` are the ends of a sweep, `notes` are fixed
+   * pitches.
    */
   sfx: {
     coin: { duration: 0.16, gain: 0.45, from: 1174.66, to: 1760 },
@@ -401,6 +403,8 @@ export const AUDIO = {
     powerUpEnd: { duration: 0.28, gain: 0.42, notes: [783.99, 523.25] },
     shieldPop: { duration: 0.28, gain: 0.6, from: 2600, to: 700 },
     uiTap: { duration: 0.09, gain: 0.38, from: 820, to: 620 },
+    /** A purchase in the shop: a cash-register chime (section 3). */
+    purchase: { duration: 0.55, gain: 0.6, notes: [783.99, 1046.5, 1318.51] },
   },
   /** The looping background track: four chords, bass, and an arpeggio over them. */
   music: {
@@ -483,6 +487,58 @@ export const SAVE = {
   starterRing: 'tube',
   /** A saved id longer than this is junk, not an id. */
   maxIdLength: 32,
+} as const;
+
+/**
+ * The shop (docs/ART-AND-SHOP.md section 3).
+ *
+ * Prices are in coins, and the order the ids are written in here is the order
+ * the shop lays its cards out in — cheapest first, with the free starter at
+ * the front. The ids must match the sprites in src/render/sprites/, which a
+ * test checks, so a typo can never put a card in the shop for a rider the
+ * game cannot draw.
+ *
+ * Coins are only ever spent here, and nothing bought changes the game: a
+ * purchase is a picture and nothing else (CLAUDE.md rule 13).
+ */
+export const SHOP = {
+  /** What each animal costs. The starter frog is free (section 3). */
+  animalPrices: {
+    frog: 0,
+    penguin: 500,
+    duck: 800,
+    cat: 1200,
+    pig: 1800,
+    bear: 2500,
+  },
+  /** What each ring costs. The starter tube is free. */
+  ringPrices: {
+    tube: 0,
+    hoop: 300,
+    donut: 500,
+    pineapple: 600,
+    watermelon: 800,
+    onion: 1000,
+    pizza: 1500,
+    record: 2000,
+    wheel: 2500,
+    tractor: 3500,
+    toilet: 5000,
+  },
+  /**
+   * How big the pixel pictures are drawn, in screen pixels per sprite pixel:
+   * on a card, in the big preview, and on the title screen. Whole numbers
+   * only, or the pixels stop being square.
+   */
+  cardZoom: 2,
+  previewZoom: 4,
+  titleZoom: 4,
+  /** The coin burst a purchase plays: how many coins, and for how long. */
+  burstCoins: 10,
+  burstSeconds: 0.75,
+  /** How far a burst coin flies: sideways either way, and up, in screen pixels. */
+  burstSpread: 70,
+  burstRise: 90,
 } as const;
 
 /** Debug mode, `?debug=1` (SPEC 13). Never reachable in a normal game. */

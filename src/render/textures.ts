@@ -20,7 +20,7 @@ import {
 } from 'three';
 import { LANES, PALETTE, RETRO, TRACK } from '../config';
 import type { PowerUpType } from '../game/powerups';
-import { ATLAS_SIZE, atlasEntries, SPRITE_LEGEND } from './sprites';
+import { ATLAS_SIZE, atlasEntries, COIN_ICON, SPRITE_LEGEND } from './sprites';
 
 /** A palette colour as CSS, for the 2D canvas. */
 export function colorToCss(hex: number): string {
@@ -36,6 +36,21 @@ function pixelCanvas(width: number, height: number): CanvasRenderingContext2D {
   if (ctx === null) throw new Error('pixelCanvas: no 2D canvas support');
   ctx.imageSmoothingEnabled = false;
   return ctx;
+}
+
+/**
+ * The little coin that goes beside a price, as a data URL for the CSS
+ * (docs/ART-AND-SHOP.md section 3).
+ *
+ * Painted from the pixel map in src/render/sprites/icons.ts, so the shop has
+ * no image file to fetch and the coin is drawn in code like everything else
+ * (CLAUDE.md rule 8). Called once, when the shop is built.
+ */
+export function coinIconDataUrl(): string {
+  const width = COIN_ICON[0]?.length ?? 0;
+  const ctx = pixelCanvas(width, COIN_ICON.length);
+  drawPixelMap(ctx, COIN_ICON, SPRITE_LEGEND);
+  return ctx.canvas.toDataURL('image/png');
 }
 
 /** Turns a finished canvas into a texture that is never smoothed or mipmapped. */

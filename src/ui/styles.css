@@ -462,6 +462,331 @@ body {
   text-shadow: var(--text-outline);
 }
 
+/*
+ * The shop (docs/ART-AND-SHOP.md section 3).
+ *
+ * Same three rules as the rest of the overlay: flat palette colours, a thick
+ * dark outline, no soft edges. The screen is a column — bar, tabs, the big
+ * preview, then the grid of cards, which is the only thing that scrolls.
+ *
+ * The coin beside every price is the pixel map from
+ * src/render/sprites/icons.ts, painted onto a canvas at startup and handed to
+ * this stylesheet as --coin-url (CLAUDE.md rule 8). Until it is painted the
+ * property is empty, which simply shows no coin rather than a broken image.
+ */
+
+/* The coins in hand: on the title screen, and in the shop's own bar. */
+.coin-balance {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 19px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--yellow);
+  text-shadow: var(--text-outline);
+}
+
+#start-coins {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* One pixel coin, never smoothed. */
+.coin-icon {
+  display: inline-block;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  background-image: var(--coin-url);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  image-rendering: pixelated;
+}
+
+/* A price: the same coin, in front of the number. */
+.with-coin::before {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 5px;
+  vertical-align: -1px;
+  background-image: var(--coin-url);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  image-rendering: pixelated;
+}
+
+/* Every pixel picture of a rider: on the title screen, in the shop. */
+.rider-canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* The rider idling on the title screen, above the buttons. */
+#start-rider {
+  margin: 2px 0 6px;
+}
+
+/*
+ * A short frame — a small phone, or a desktop window — has no room for the
+ * rider at full size, so it drops a whole step rather than being squeezed to
+ * a fraction of a pixel. The size is set in code, hence !important.
+ */
+@media (max-height: 720px) {
+  #start-rider {
+    width: 132px !important;
+    height: 132px !important;
+  }
+}
+
+/* --- The shop screen ------------------------------------------------------ */
+
+#screen-shop {
+  justify-content: flex-start;
+  gap: 8px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) max(10px, env(safe-area-inset-right, 0px))
+    calc(env(safe-area-inset-bottom, 0px) + 10px) max(10px, env(safe-area-inset-left, 0px));
+  background: rgba(43, 33, 64, 0.92);
+}
+
+.shop-bar {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.shop-bar h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+/* The buttons in the shop size themselves; the screen's buttons fill the row. */
+.shop-bar button,
+.shop-tab,
+.shop-card {
+  width: auto;
+  max-width: none;
+}
+
+.shop-back {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+/* The two tabs: Animals and Rings. */
+.shop-tabs {
+  display: flex;
+  width: 100%;
+  gap: 6px;
+}
+
+.shop-tab {
+  flex: 1;
+  padding: 9px 10px;
+  border: 3px solid var(--outline);
+  border-radius: 0;
+  background: var(--sand);
+  color: var(--outline);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: inset 0 -5px 0 rgba(43, 33, 64, 0.3);
+}
+
+.shop-tab.on {
+  background: var(--yellow);
+}
+
+.shop-tab:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 -3px 0 rgba(43, 33, 64, 0.3);
+}
+
+/* The big preview, and the one thing that can be done with it. */
+.shop-detail {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: 3px solid var(--outline);
+  background: rgba(111, 94, 158, 0.35);
+}
+
+.shop-detail-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  text-align: left;
+}
+
+#shop-name {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--cream);
+  text-shadow: var(--text-outline-thin);
+}
+
+#shop-price {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--yellow);
+  text-shadow: var(--text-outline-thin);
+}
+
+.shop-detail button {
+  width: 100%;
+  max-width: none;
+  font-size: 16px;
+  padding: 11px 14px;
+}
+
+.shop-detail button:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.shop-detail button:disabled:active {
+  transform: none;
+}
+
+/* The quick confirm before any coins are spent. */
+.shop-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#shop-confirm-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--cream);
+  text-shadow: var(--text-outline-thin);
+}
+
+/* The grid of cards: the only part of the screen that scrolls. */
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 7px;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  padding: 2px;
+  overflow-y: auto;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+.shop-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 4px 7px;
+  border: 3px solid var(--outline);
+  border-radius: 0;
+  background: var(--sand);
+  color: var(--outline);
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: inset 0 -5px 0 rgba(43, 33, 64, 0.25);
+}
+
+.shop-card:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 -3px 0 rgba(43, 33, 64, 0.25);
+}
+
+.shop-card.owned {
+  background: var(--cream);
+}
+
+.shop-card.equipped {
+  background: var(--sky-blue);
+}
+
+/* Not enough coins yet: still readable, clearly not ready. */
+.shop-card.too-dear {
+  opacity: 0.72;
+}
+
+/* The card the big preview is showing. */
+.shop-card.on {
+  box-shadow:
+    0 0 0 3px var(--yellow),
+    inset 0 -5px 0 rgba(43, 33, 64, 0.25);
+}
+
+.shop-card-name {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.shop-card-price {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The coins that fly out of a purchase. */
+.shop-burst {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.burst-coin {
+  position: absolute;
+  left: 22%;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  animation-name: coin-burst;
+  animation-timing-function: steps(10, end);
+  animation-fill-mode: forwards;
+}
+
+@keyframes coin-burst {
+  from {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+  to {
+    transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, -60px)))
+      rotate(var(--spin, 0deg));
+    opacity: 0;
+  }
+}
+
+/* Someone who asked for less movement gets the coins without the flight. */
+@media (prefers-reduced-motion: reduce) {
+  .burst-coin {
+    animation-duration: 0.3s !important;
+    animation-timing-function: steps(2, end);
+  }
+}
+
 #message {
   position: absolute;
   inset: 0;

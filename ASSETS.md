@@ -24,6 +24,7 @@ All of these are built from the numbers in `AUDIO` in `src/config.ts` when the p
 | Power-up end | Two falling notes, G5 C5 | Generated — `renderNotes` in `src/audio/sfx.ts` | CC0 1.0 (original) |
 | Shield pop | Bright noise burst with a 1200 Hz ping | Generated — `renderShieldPop` in `src/audio/sfx.ts` | CC0 1.0 (original) |
 | UI tap | Soft click 820→620 Hz | Generated — `renderUiTap` in `src/audio/sfx.ts` | CC0 1.0 (original) |
+| Purchase | Three-note till chime, G5 C6 E6, each ringing on to the end (M11) | Generated — `renderPurchase` in `src/audio/sfx.ts` | CC0 1.0 (original) |
 | Background music | ~9 s loop at 104 BPM: chords C – G – Am – F with bass and arpeggio | Generated — `renderMusicLoop` in `src/audio/beds.ts` | CC0 1.0 (original) |
 | Water ambience | 6 s loop of filtered noise with slow swells, crossfaded so it has no seam | Generated — `renderWaterLoop` in `src/audio/beds.ts` | CC0 1.0 (original) |
 
@@ -74,6 +75,8 @@ canvas in code at startup and every shape is assembled out of primitives:
 | Slide surface | Pixel water, scrolling light stripes, sand rims | Generated — `createSlideTexture` in `src/render/textures.ts` | CC0 1.0 (original) |
 | Spinning coin | 8-frame pixel strip | Generated — `createCoinStripTexture` in `src/render/textures.ts` | CC0 1.0 (original) |
 | Power-up icons | 16x16 pixel maps for shield, magnet and boost | Hand-authored pixel maps — `PICKUP_ICONS` in `src/render/textures.ts` | CC0 1.0 (original) |
+| Rider sprites | Six animals in three poses, eleven rings in four spin frames, three power-up effects (M10) | Hand-authored pixel maps — `src/render/sprites/` | CC0 1.0 (original) |
+| Shop coin icon | 8x8 pixel coin beside every price, painted to a canvas and used as a CSS background (M11) | Hand-authored pixel map — `COIN_ICON` in `src/render/sprites/icons.ts` | CC0 1.0 (original) |
 | Obstacles, scenery, player | Primitive shapes merged with baked-in vertex colours | Generated — `src/render/factories.ts` | CC0 1.0 (original) |
 
 ## Adding a real asset later

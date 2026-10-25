@@ -14,6 +14,7 @@ export * from './animals';
 export * from './rings';
 export * from './effects';
 export * from './atlas';
+export * from './icons';
 export * from './legend';
 
 /** One rider: an animal in a ring. */

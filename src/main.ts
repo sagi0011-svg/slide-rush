@@ -28,7 +28,8 @@ import {
   type FlowEvent,
 } from './game/flow';
 import { currentStep, skipTutorial } from './game/tutorial';
-import { browserStorage, createSaveStore } from './game/save';
+import { browserStorage, createSaveStore, shopChanges, shopStateOf } from './game/save';
+import { buy, equip, type ItemKind, type ShopState } from './game/shop';
 import { displayScore } from './game/scoring';
 import { createInputSource } from './input';
 import { createRenderer, type Frame, type Renderer } from './render/scene';
@@ -43,6 +44,7 @@ import type { HudValues } from './ui/hud';
 import { createFeedback } from './ui/feedback';
 import { createHud } from './ui/hud';
 import { createScreens } from './ui/screens';
+import { createShopScreen } from './ui/shop';
 import { STRINGS } from './ui/strings';
 
 function requireElement<T extends HTMLElement>(id: string): T {
@@ -71,6 +73,12 @@ function boot(): void {
   const fixedSeed = Number.isFinite(parsedSeed) ? parsedSeed : null;
 
   const save = createSaveStore(browserStorage());
+  /**
+   * The shop's view of the save: coins, what is owned, what is worn (§3).
+   * Everything bought or equipped changes this and is written straight back,
+   * so a purchase survives a reload. It never touches the run (rule 13).
+   */
+  let shop: ShopState = shopStateOf(save.data);
   const flow = createFlow();
   const stepper = createFixedStepper(SIM.dt, SIM.maxTicksPerFrame);
   // Debug mode's overrides (SPEC 13). Shared by every run, so a slider holds
@@ -100,11 +108,9 @@ function boot(): void {
   let renderer: Renderer;
   try {
     // The equipped animal and ring, falling back to the free starters for any
-    // id this build does not know (§2). Only ever a picture (rule 13).
-    renderer = createRenderer(
-      canvas,
-      resolveRider(save.data.equippedAnimal, save.data.equippedRing),
-    );
+    // id this build does not know, or any that is not owned (§2, §3). Only
+    // ever a picture (rule 13).
+    renderer = createRenderer(canvas, resolveRider(shop.equipped.animal, shop.equipped.ring));
   } catch (error) {
     console.error('Slide Rush: could not start WebGL', error);
     showMessage(STRINGS.webglUnsupported);
@@ -139,8 +145,10 @@ function boot(): void {
 
   // Whether the player is on a keyboard, so the prompts name the right thing.
   let usingKeyboard = false;
-  window.addEventListener('keydown', () => {
+  window.addEventListener('keydown', (event) => {
     usingKeyboard = true;
+    // Escape backs out of the shop, like the phone's back gesture (§3).
+    if (event.code === 'Escape' && flow.phase === 'shop') leaveShop();
   });
 
   const hud = createHud(requireElement('frame'));
@@ -186,7 +194,42 @@ function boot(): void {
     screens.show(flow.phase);
     screens.setBestScore(save.data.bestScore);
     audio.setPhase(flow.phase);
+    if (flow.phase === 'shop') {
+      shopScreen.open();
+      pushShopHistory();
+    }
   };
+
+  /**
+   * The phone's back button and the browser's back gesture both close the
+   * shop rather than leaving the game (§3). Opening the shop pushes an entry
+   * of its own, so going back pops it; leaving by the Back button goes back
+   * through the same history, which keeps the two in step.
+   */
+  let shopInHistory = false;
+  function pushShopHistory(): void {
+    if (shopInHistory) return;
+    try {
+      window.history.pushState({ slideRushShop: true }, '');
+      shopInHistory = true;
+    } catch {
+      // Some browsers refuse pushState on a file:// page. The Back button
+      // still works; the gesture simply leaves the page, as it did before.
+      shopInHistory = false;
+    }
+  }
+  function leaveShop(): void {
+    if (shopInHistory) {
+      // The popstate below is what actually goes home.
+      window.history.back();
+      return;
+    }
+    handleEvent('home');
+  }
+  window.addEventListener('popstate', () => {
+    shopInHistory = false;
+    if (flow.phase === 'shop') handleEvent('home');
+  });
 
   const screens = createScreens({
     onEvent: handleEvent,
@@ -214,6 +257,37 @@ function boot(): void {
       audio.play('uiTap');
     },
   });
+
+  /** Writes the shop's state into the save, and puts it on screen. */
+  const applyShop = (next: ShopState): void => {
+    shop = next;
+    save.update(shopChanges(shop));
+    renderer.rider.setPair(resolveRider(shop.equipped.animal, shop.equipped.ring));
+    shopScreen.setState(shop);
+  };
+
+  const shopScreen = createShopScreen({
+    onBuy(kind: ItemKind, id: string) {
+      const next = buy(shop, kind, id);
+      // Refused — too dear, already owned, or not a thing. Nothing changes.
+      if (next === shop) return false;
+      // What you just paid for goes straight on; nobody buys a bear to leave
+      // it in the cupboard.
+      applyShop(equip(next, kind, id));
+      audio.play('purchase');
+      return true;
+    },
+    onEquip(kind: ItemKind, id: string) {
+      applyShop(equip(shop, kind, id));
+    },
+    onBack() {
+      leaveShop();
+    },
+    onTap() {
+      audio.play('uiTap');
+    },
+  });
+  shopScreen.setState(shop);
 
   screens.show(flow.phase);
   screens.setBestScore(save.data.bestScore);
@@ -318,6 +392,9 @@ function boot(): void {
     if (state.phase === 'dead' && !wasDead) {
       feedback.play('death');
       save.finishRun(displayScore(state.score), state.score.coins);
+      // The run's coins are now in hand and can be spent (§3).
+      shop = shopStateOf(save.data);
+      shopScreen.setState(shop);
     }
     wasDead = state.phase === 'dead';
 
@@ -333,6 +410,7 @@ function boot(): void {
       screens.setGameOver({
         score,
         coins: state.score.coins,
+        totalCoins: save.data.totalCoins,
         bestScore: save.data.bestScore,
         isNewBest: score > 0 && score >= save.data.bestScore,
       });
@@ -387,6 +465,10 @@ function boot(): void {
       flow.phase === 'playing' && step !== null ? step.id : null,
       usingKeyboard,
     );
+
+    // The rider idling on the title screen, and the shop's big preview (§3).
+    // Both redraw only when a frame of the bob or the spin actually changes.
+    if (flow.phase === 'start' || flow.phase === 'shop') shopScreen.tick(frameSeconds);
 
     debug.update(frameSeconds, fillDebugInfo);
 

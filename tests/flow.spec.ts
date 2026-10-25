@@ -68,6 +68,38 @@ describe('moving between screens (SPEC 11)', () => {
     }
   });
 
+  it('opens the shop from the title and comes back (docs/ART-AND-SHOP.md section 3)', () => {
+    const flow = createFlow();
+    applyFlowEvent(flow, 'shop');
+    expect(flow.phase).toBe('shop');
+    applyFlowEvent(flow, 'home');
+    expect(flow.phase).toBe('start');
+  });
+
+  it('opens the shop from the game over screen', () => {
+    const flow = createFlow();
+    applyFlowEvent(flow, 'play');
+    applyFlowEvent(flow, 'died');
+    applyFlowEvent(flow, 'shop');
+    expect(flow.phase).toBe('shop');
+    // Back goes to the title, not back to the score.
+    applyFlowEvent(flow, 'home');
+    expect(flow.phase).toBe('start');
+  });
+
+  it('never opens the shop in the middle of a run', () => {
+    for (const phase of ['playing', 'paused', 'shop'] as const) {
+      expect(nextPhase(phase, 'shop'), phase).toBe(phase);
+    }
+  });
+
+  it('keeps the shop up when the tab goes away, and simulates nothing', () => {
+    expect(nextPhase('shop', 'lostFocus')).toBe('shop');
+    expect(isSimulating('shop')).toBe(false);
+    expect(isScreenUp('shop')).toBe(true);
+    expect(needsFreshRun('shop')).toBe(false);
+  });
+
   it('pauses itself when the tab goes away (SPEC 11)', () => {
     const flow = createFlow();
     applyFlowEvent(flow, 'play');
@@ -92,6 +124,11 @@ describe('moving between screens (SPEC 11)', () => {
       ['gameOver', 'pause'],
       ['gameOver', 'died'],
       ['paused', 'play'],
+      ['shop', 'play'],
+      ['shop', 'pause'],
+      ['shop', 'resume'],
+      ['shop', 'restart'],
+      ['shop', 'died'],
     ];
     for (const [phase, event] of nonsense) {
       expect(nextPhase(phase, event), `${phase} + ${event}`).toBe(phase);

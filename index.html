@@ -58,10 +58,15 @@
 
         <div id="screens">
           <section id="screen-start" class="screen" hidden>
+            <!-- The coins in hand, top right (docs/ART-AND-SHOP.md section 3). -->
+            <p id="start-coins" class="coin-balance"><i class="coin-icon"></i><span></span></p>
             <h1 id="start-title"></h1>
             <p id="start-tagline" class="muted"></p>
+            <!-- The equipped rider, idling. Drawn by src/ui/shop.ts. -->
+            <canvas id="start-rider" class="rider-canvas"></canvas>
             <p id="start-best" class="stat"></p>
             <button id="start-play" class="primary" type="button"></button>
+            <button id="start-shop" class="ghost" type="button"></button>
             <button id="start-sound" class="ghost" type="button"></button>
             <button id="start-effects" class="ghost" type="button"></button>
           </section>
@@ -88,12 +93,50 @@
                 <dd id="over-coins"></dd>
               </div>
               <div>
+                <dt id="over-total-label"></dt>
+                <dd id="over-total"></dd>
+              </div>
+              <div>
                 <dt id="over-best-label"></dt>
                 <dd id="over-best"></dd>
               </div>
             </dl>
             <button id="over-again" class="primary" type="button"></button>
+            <button id="over-shop" class="ghost" type="button"></button>
             <button id="over-home" class="ghost" type="button"></button>
+          </section>
+
+          <!--
+            The shop (docs/ART-AND-SHOP.md section 3). Everything inside is
+            filled in and wired up by src/ui/shop.ts; the cards themselves are
+            built from the catalog in src/game/shop.ts.
+          -->
+          <section id="screen-shop" class="screen" hidden>
+            <header class="shop-bar">
+              <button id="shop-back" class="ghost shop-back" type="button"></button>
+              <h2 id="shop-title"></h2>
+              <p id="shop-coins" class="coin-balance"><i class="coin-icon"></i><span></span></p>
+            </header>
+
+            <div id="shop-tabs" class="shop-tabs"></div>
+
+            <div class="shop-detail">
+              <canvas id="shop-preview" class="rider-canvas"></canvas>
+              <div class="shop-detail-text">
+                <p id="shop-name"></p>
+                <p id="shop-price"></p>
+                <button id="shop-action" class="primary" type="button"></button>
+                <div id="shop-confirm" class="shop-confirm" hidden>
+                  <p id="shop-confirm-text"></p>
+                  <button id="shop-confirm-yes" class="primary" type="button"></button>
+                  <button id="shop-confirm-no" class="ghost" type="button"></button>
+                </div>
+              </div>
+              <!-- Where the coins of a purchase fly out of. -->
+              <div id="shop-burst" class="shop-burst" aria-hidden="true"></div>
+            </div>
+
+            <div id="shop-grid" class="shop-grid"></div>
           </section>
         </div>
         <div id="flash"></div>

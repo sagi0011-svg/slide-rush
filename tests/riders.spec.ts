@@ -9,6 +9,7 @@ import {
   ATLAS_SIZE,
   atlasEntries,
   CLEAR,
+  COIN_ICON,
   DRAWN_POSES,
   EFFECT_IN_FRONT,
   effectRows,
@@ -76,6 +77,14 @@ describe('the cast', () => {
     expect(STARTER_RING).toBe('tube');
     expect(SAVE.starterAnimal).toBe(STARTER_ANIMAL);
     expect(SAVE.starterRing).toBe(STARTER_RING);
+  });
+});
+
+describe('the coin icon (section 3)', () => {
+  it('is a square pixel map in the legend colours, with a coin to show', () => {
+    expectShape(COIN_ICON, COIN_ICON.length, COIN_ICON.length, 'coin icon');
+    expectKnownCharacters(COIN_ICON, 'coin icon');
+    expect(bodyPixels(COIN_ICON)).toBeGreaterThan(COIN_ICON.length);
   });
 });
 

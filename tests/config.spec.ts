@@ -133,9 +133,12 @@ describe('sound settings (SPEC 12)', () => {
     expect(AUDIO.menuMusicLevel).toBeLessThan(1);
   });
 
-  it('describes all ten effects, each audible and inside the range', () => {
+  it('describes all eleven effects, each audible and inside the range', () => {
+    // Ten from SPEC 12, plus the purchase chime the shop plays
+    // (docs/ART-AND-SHOP.md section 3).
     const names = Object.keys(AUDIO.sfx);
-    expect(names).toHaveLength(10);
+    expect(names).toHaveLength(11);
+    expect(names).toContain('purchase');
     for (const [name, recipe] of Object.entries(AUDIO.sfx)) {
       expect(recipe.duration, name).toBeGreaterThan(0);
       expect(recipe.gain, name).toBeGreaterThan(0);

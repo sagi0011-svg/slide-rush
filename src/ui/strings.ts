@@ -23,6 +23,7 @@ export const STRINGS = {
   best: 'BEST',
   score: 'SCORE',
   coins: 'COINS',
+  total: 'TOTAL',
   coinSymbol: '●',
 
   soundOn: 'Sound on',
@@ -73,6 +74,37 @@ export const STRINGS = {
     toilet: 'Toilet Seat',
   },
 
+  /** The shop (docs/ART-AND-SHOP.md §3). */
+  shop: {
+    /** The button that opens it, on the title and game over screens. */
+    open: 'Shop',
+    title: 'Shop',
+    back: 'Back',
+    /** The two tabs. */
+    tabs: {
+      animal: 'Animals',
+      ring: 'Rings',
+    },
+    /** What a card says instead of a price. */
+    free: 'Free',
+    owned: 'Owned',
+    equipped: 'Equipped',
+    /** The button under the big preview. */
+    buy: 'Buy',
+    equip: 'Wear it',
+    wearing: 'Wearing it',
+    /** When it costs more than the coins in hand. */
+    notEnough: 'Need {coins} more',
+    /** The quick confirm before the coins are spent. */
+    confirm: 'Buy {name} for {coins}?',
+    confirmYes: 'Yes, buy it',
+    confirmNo: 'Not yet',
+    /** Said once, after a purchase. */
+    bought: 'Bought! Now wearing it.',
+    /** Under the tabs, when nothing has been tapped yet. */
+    hint: 'Tap one to try it on',
+  },
+
   /** The rider gallery, `?debug=1&gallery=1` (§2). */
   gallery: {
     title: 'Rider gallery',
@@ -108,3 +140,16 @@ export const STRINGS = {
 } as const;
 
 export type StringKey = keyof typeof STRINGS;
+
+/**
+ * Fills the `{name}` slots in one of the strings above.
+ *
+ * Numbers and names are kept out of the strings themselves so a Hebrew
+ * translation can put them wherever its own grammar needs them (rule 9).
+ */
+export function fill(template: string, values: Readonly<Record<string, string | number>>): string {
+  return template.replace(/\{(\w+)\}/g, (whole, name: string) => {
+    const value = values[name];
+    return value === undefined ? whole : String(value);
+  });
+}

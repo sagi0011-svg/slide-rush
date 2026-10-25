@@ -1,10 +1,10 @@
 /**
  * What survives between runs (SPEC 10).
  *
- * Best score, every coin ever collected (for the shop, later), whether the
+ * Best score, every coin ever collected and not yet spent, whether the
  * tutorial has been seen, whether sound is muted, whether the shake and
- * flash of a hit are turned off, and which animal and ring the player rides
- * (docs/ART-AND-SHOP.md §2).
+ * flash of a hit are turned off, which animals and rings have been bought in
+ * the shop, and which pair the player rides (docs/ART-AND-SHOP.md §2 and §3).
  *
  * The storage itself is handed in rather than reached for, so the rules can be
  * tested without a browser. Nothing here may ever throw: private browsing,
@@ -13,11 +13,15 @@
  */
 
 import { SAVE } from '../config';
+import { createShopState, ITEM_KINDS, ownedList, type ItemKind, type ShopState } from './shop';
 
 export interface SaveData {
   /** Highest score ever reached. */
   bestScore: number;
-  /** Every coin collected across every run, for a future shop. */
+  /**
+   * The coins in hand: every coin collected across every run, less everything
+   * spent in the shop (§3).
+   */
   totalCoins: number;
   /** Whether the first-run tutorial has been completed (M6). */
   tutorialSeen: boolean;
@@ -34,6 +38,13 @@ export interface SaveData {
    */
   equippedAnimal: string;
   equippedRing: string;
+  /**
+   * What has been bought in the shop (§3). The free starters are always in
+   * here, so a fresh save already owns a frog and a tube; ids this build does
+   * not sell are dropped on the way in.
+   */
+  ownedAnimals: string[];
+  ownedRings: string[];
 }
 
 /** The little bit of localStorage this needs; easy to stand in for in a test. */
@@ -51,6 +62,8 @@ export function defaultSave(): SaveData {
     effectsOff: false,
     equippedAnimal: SAVE.starterAnimal,
     equippedRing: SAVE.starterRing,
+    ownedAnimals: ownedList('animal', null),
+    ownedRings: ownedList('ring', null),
   };
 }
 
@@ -96,7 +109,44 @@ export function parseSave(raw: string | null): SaveData {
     effectsOff: flag(data['effectsOff'], fresh.effectsOff),
     equippedAnimal: id(data['equippedAnimal'], fresh.equippedAnimal),
     equippedRing: id(data['equippedRing'], fresh.equippedRing),
+    ownedAnimals: ownedList('animal', data['ownedAnimals']),
+    ownedRings: ownedList('ring', data['ownedRings']),
   };
+}
+
+/** Which save field holds the owned list of each kind. */
+const OWNED_FIELD: Readonly<Record<ItemKind, 'ownedAnimals' | 'ownedRings'>> = {
+  animal: 'ownedAnimals',
+  ring: 'ownedRings',
+};
+
+/**
+ * The save as the shop sees it (src/game/shop.ts): coins, owned, equipped.
+ *
+ * This is also where the last of §3's save rules is kept: an equipped id that
+ * is not owned — a save from a newer version naming a ring this build has
+ * never heard of, or one edited by hand — falls back to the free starter, so
+ * what the player sees is always something they actually own. The save itself
+ * keeps the unknown id until something is bought or equipped, which costs
+ * nothing and means a newer version finds its ring still there.
+ */
+export function shopStateOf(data: SaveData): ShopState {
+  return createShopState({
+    coins: data.totalCoins,
+    owned: { animal: data.ownedAnimals, ring: data.ownedRings },
+    equipped: { animal: data.equippedAnimal, ring: data.equippedRing },
+  });
+}
+
+/** The save fields a shop state covers, ready for `update`. */
+export function shopChanges(state: ShopState): Partial<SaveData> {
+  const changes: Partial<SaveData> = { totalCoins: state.coins };
+  for (const kind of ITEM_KINDS) {
+    changes[OWNED_FIELD[kind]] = [...state.owned[kind]];
+  }
+  changes.equippedAnimal = state.equipped.animal;
+  changes.equippedRing = state.equipped.ring;
+  return changes;
 }
 
 export interface SaveStore {
