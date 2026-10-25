@@ -797,6 +797,121 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * Settings (docs/VISUAL-STYLES.md section 3). Laid out like the shop: a bar
+ * along the top, then the sections, scrolling if a short phone needs it.
+ */
+#screen-settings {
+  justify-content: flex-start;
+  gap: 8px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) max(10px, env(safe-area-inset-right, 0px))
+    calc(env(safe-area-inset-bottom, 0px) + 10px) max(10px, env(safe-area-inset-left, 0px));
+  background: rgba(43, 33, 64, 0.92);
+}
+
+/* Balances the Back button, so the title sits in the middle. */
+.shop-bar-spacer {
+  width: 64px;
+}
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.settings-heading {
+  margin: 10px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: left;
+  color: var(--yellow);
+  text-shadow: var(--text-outline-thin);
+}
+
+/* The three looks, side by side. */
+.style-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.screen button.style-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: auto;
+  max-width: none;
+  min-height: 44px;
+  padding: 6px 4px 8px;
+  background: var(--sand);
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+.style-preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 2px solid var(--outline);
+  image-rendering: pixelated;
+}
+
+.style-preview.smooth {
+  image-rendering: auto;
+}
+
+/* The chosen look: a yellow border and the SELECTED tag. */
+.screen button.style-card[aria-pressed='true'] {
+  background: var(--cream);
+  box-shadow:
+    0 0 0 3px var(--yellow),
+    inset 0 -5px 0 rgba(43, 33, 64, 0.3);
+}
+
+.style-tag {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 5px;
+  border: 2px solid var(--outline);
+  background: var(--yellow);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  font-size: 16px;
+  text-align: left;
+  text-shadow: var(--text-outline-thin);
+}
+
+.screen button.toggle {
+  width: 84px;
+  min-height: 44px;
+  padding: 8px 10px;
+  font-size: 15px;
+  background: var(--slide-edge);
+}
+
+.screen button.toggle[aria-pressed='true'] {
+  background: var(--yellow);
+}
+
 /* The coins that fly out of a purchase. */
 .shop-burst {
   position: absolute;

@@ -324,6 +324,13 @@ export function createRenderer(canvas: HTMLCanvasElement, riderPair: RiderPair):
       shadow.geometry.dispose();
       shadow.material.dispose();
       texture.dispose();
+      // Hand the canvas on clean: a renderer built on it next (a new look,
+      // docs/VISUAL-STYLES.md §2) shares this WebGL context, and starts by
+      // uploading textures that the browser refuses while Three's last
+      // settings are still switched on.
+      const gl = renderer.getContext();
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       renderer.dispose();
     },
   };

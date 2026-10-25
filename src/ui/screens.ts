@@ -1,6 +1,6 @@
 /**
- * The screens the player reads: title, pause, game over and the shop
- * (SPEC 11, docs/ART-AND-SHOP.md section 3).
+ * The screens the player reads: title, pause and game over (SPEC 11). The
+ * shop and Settings have modules of their own (src/ui/shop.ts, settings.ts).
  *
  * Every piece of text comes from src/ui/strings.ts, and every button reports
  * back as a flow event rather than doing anything itself, so the rules of
@@ -32,9 +32,9 @@ export interface Screens {
   setGameOver(facts: GameOverFacts): void;
   /** Keeps the best score on the title screen up to date. */
   setBestScore(best: number): void;
-  /** Updates both sound buttons to match the setting. */
+  /** Updates the pause screen's sound button to match the settings. */
   setMuted(muted: boolean): void;
-  /** Updates both shake-and-flash buttons to match the setting. */
+  /** Updates the pause screen's shake-and-flash button to match the setting. */
   setEffectsOff(off: boolean): void;
   /** Shows a tutorial prompt, or nothing when `step` is null (SPEC 11). */
   setTutorialPrompt(step: TutorialStepId | null, usingKeyboard: boolean): void;
@@ -44,6 +44,7 @@ export interface Screens {
 const BUTTONS: ReadonlyArray<[string, FlowEvent]> = [
   ['start-play', 'play'],
   ['start-shop', 'shop'],
+  ['start-settings', 'settings'],
   ['paused-resume', 'resume'],
   ['paused-restart', 'restart'],
   ['paused-home', 'home'],
@@ -59,6 +60,7 @@ const SCREEN_FOR_PHASE: Readonly<Record<AppPhase, string | null>> = {
   paused: 'screen-paused',
   gameOver: 'screen-over',
   shop: 'screen-shop',
+  settings: 'screen-settings',
 };
 
 function byId<T extends HTMLElement>(id: string): T | null {
@@ -77,7 +79,7 @@ function formatNumber(value: number): string {
 export interface ScreensHandlers {
   /** Called when a button asks the game to do something. */
   onEvent(event: FlowEvent): void;
-  /** Called by the sound button. */
+  /** Called by the pause screen's sound button: everything off, or back on. */
   onToggleSound(): void;
   /** Called by the shake-and-flash button. */
   onToggleEffects(): void;
@@ -93,6 +95,7 @@ export function createScreens(handlers: ScreensHandlers): Screens {
   setText('start-tagline', STRINGS.tagline);
   setText('start-credit', STRINGS.credit);
   setText('start-play', STRINGS.play);
+  setText('start-settings', STRINGS.settings.open);
   setText('paused-title', STRINGS.paused);
   setText('paused-resume', STRINGS.resume);
   setText('paused-restart', STRINGS.restart);
@@ -114,14 +117,13 @@ export function createScreens(handlers: ScreensHandlers): Screens {
     });
   }
   // The sound button says so itself, by turning the sound on.
-  byId('start-sound')?.addEventListener('click', () => handlers.onToggleSound());
+  // The title's switches live on the Settings screen now; the pause screen
+  // keeps a quick pair, so a run never has to end to silence it.
   byId('paused-sound')?.addEventListener('click', () => handlers.onToggleSound());
-  for (const id of ['start-effects', 'paused-effects']) {
-    byId(id)?.addEventListener('click', () => {
-      handlers.onTap();
-      handlers.onToggleEffects();
-    });
-  }
+  byId('paused-effects')?.addEventListener('click', () => {
+    handlers.onTap();
+    handlers.onToggleEffects();
+  });
   byId('tutorial-skip')?.addEventListener('click', () => {
     handlers.onTap();
     handlers.onSkipTutorial();
@@ -178,15 +180,11 @@ export function createScreens(handlers: ScreensHandlers): Screens {
     },
 
     setMuted(muted) {
-      const label = muted ? STRINGS.soundOff : STRINGS.soundOn;
-      setText('start-sound', label);
-      setText('paused-sound', label);
+      setText('paused-sound', muted ? STRINGS.soundOff : STRINGS.soundOn);
     },
 
     setEffectsOff(off) {
-      const label = off ? STRINGS.effectsOff : STRINGS.effectsOn;
-      setText('start-effects', label);
-      setText('paused-effects', label);
+      setText('paused-effects', off ? STRINGS.effectsOff : STRINGS.effectsOn);
     },
 
     setTutorialPrompt(step, usingKeyboard) {

@@ -100,6 +100,30 @@ describe('moving between screens (SPEC 11)', () => {
     expect(needsFreshRun('shop')).toBe(false);
   });
 
+  it('opens Settings from the title and comes back (docs/VISUAL-STYLES.md section 3)', () => {
+    const flow = createFlow();
+    applyFlowEvent(flow, 'settings');
+    expect(flow.phase).toBe('settings');
+    applyFlowEvent(flow, 'home');
+    expect(flow.phase).toBe('start');
+  });
+
+  it('opens Settings from nowhere but the title, so the look never changes mid-run', () => {
+    for (const phase of ['playing', 'paused', 'gameOver', 'shop', 'settings'] as const) {
+      expect(nextPhase(phase, 'settings'), phase).toBe(phase);
+    }
+  });
+
+  it('keeps Settings up when the tab goes away, and simulates nothing', () => {
+    expect(nextPhase('settings', 'lostFocus')).toBe('settings');
+    expect(isSimulating('settings')).toBe(false);
+    expect(isScreenUp('settings')).toBe(true);
+    expect(needsFreshRun('settings')).toBe(false);
+    for (const event of ['play', 'pause', 'resume', 'restart', 'died', 'shop'] as const) {
+      expect(nextPhase('settings', event), event).toBe('settings');
+    }
+  });
+
   it('pauses itself when the tab goes away (SPEC 11)', () => {
     const flow = createFlow();
     applyFlowEvent(flow, 'play');

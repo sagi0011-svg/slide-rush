@@ -48,6 +48,28 @@ export const STRINGS = {
   effectsOn: 'Shake & flash on',
   effectsOff: 'Shake & flash off',
 
+  /** The Settings screen (docs/VISUAL-STYLES.md section 3). */
+  settings: {
+    open: 'Settings',
+    title: 'Settings',
+    back: 'Back',
+    styleHeading: 'Visual Style',
+    audioHeading: 'Audio',
+    otherHeading: 'Other',
+    selected: 'SELECTED',
+    /** The three looks, by their ids in src/config.ts VISUAL_STYLES. */
+    styles: {
+      sunset: 'Sunset Pixel',
+      classic: 'Classic 3D',
+      pixel: 'Retro Pixel',
+    },
+    sfx: 'Sound effects',
+    music: 'Music',
+    effects: 'Shake & flash',
+    on: 'ON',
+    off: 'OFF',
+  },
+
   /** Short labels for the power-up timers on the HUD (SPEC 9). */
   powerUps: {
     shield: 'SHIELD',

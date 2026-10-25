@@ -88,8 +88,6 @@ export interface RiderPainter {
 
 export function createRiderPainter(): RiderPainter {
   const atlas = paintRiderAtlas().canvas;
-  const sky = colorToCss(palette().skyBottom);
-  const water = colorToCss(palette().water);
 
   /** Copies one atlas cell onto a picture, mirrored if asked. */
   const blit = (
@@ -149,7 +147,8 @@ export function createRiderPainter(): RiderPainter {
 
       ctx.clearRect(0, 0, PREVIEW_SIZE.width, PREVIEW_SIZE.height);
       if ((options.background ?? 'none') === 'sky') {
-        ctx.fillStyle = sky;
+        // Read each time: the look can change while the shop is open.
+        ctx.fillStyle = colorToCss(palette().skyBottom);
         ctx.fillRect(0, 0, PREVIEW_SIZE.width, PREVIEW_SIZE.height);
       }
 
@@ -190,7 +189,7 @@ export function createRiderPainter(): RiderPainter {
 
       // The water hides whatever is under its surface, as the slide does.
       if (options.water === true) {
-        ctx.fillStyle = water;
+        ctx.fillStyle = colorToCss(palette().water);
         ctx.fillRect(0, WATERLINE, PREVIEW_SIZE.width, PREVIEW_SIZE.height - WATERLINE);
       }
     },

@@ -7,7 +7,7 @@
  */
 
 import './ui/styles.css';
-import { LAYOUT, SIM } from './config';
+import { LAYOUT, SIM, type VisualStyle } from './config';
 import { createFixedStepper } from './game/loop';
 import {
   applyAction,
@@ -33,7 +33,8 @@ import { buy, equip, nextGoal, type ItemKind, type ShopState } from './game/shop
 import { displayScore } from './game/scoring';
 import { createInputSource } from './input';
 import { createRenderer, type Frame, type Renderer } from './render/scene';
-import { setVisualStyle } from './render/theme';
+import { setVisualStyle, visualStyle } from './render/theme';
+import { createSettingsScreen } from './ui/settings';
 import { frameAlpha, lerp } from './render/interpolate';
 import { createAudioManager } from './audio/manager';
 import { createDebugOverlay, isDebugEnabled, type DebugInfo } from './debug/overlay';
@@ -114,6 +115,7 @@ function boot(): void {
     // Drawn in the look chosen in Settings (docs/VISUAL-STYLES.md). Only ever
     // a picture: nothing the run does reads it.
     setVisualStyle(save.data.visualStyle);
+    document.documentElement.dataset['style'] = save.data.visualStyle;
     renderer = createRenderer(canvas, resolveRider(shop.equipped.animal, shop.equipped.ring));
   } catch (error) {
     console.error('Slide Rush: could not start WebGL', error);
@@ -153,7 +155,9 @@ function boot(): void {
   window.addEventListener('keydown', (event) => {
     usingKeyboard = true;
     // Escape backs out of the shop, like the phone's back gesture (§3).
-    if (event.code === 'Escape' && flow.phase === 'shop') leaveShop();
+    if (event.code === 'Escape' && (flow.phase === 'shop' || flow.phase === 'settings')) {
+      leaveScreen();
+    }
   });
 
   const hud = createHud(requireElement('frame'));
@@ -201,30 +205,34 @@ function boot(): void {
     audio.setPhase(flow.phase);
     if (flow.phase === 'shop') {
       shopScreen.open();
-      pushShopHistory();
+      pushScreenHistory();
+    }
+    if (flow.phase === 'settings') {
+      settingsScreen.setValues(save.data);
+      pushScreenHistory();
     }
   };
 
   /**
    * The phone's back button and the browser's back gesture both close the
-   * shop rather than leaving the game (§3). Opening the shop pushes an entry
-   * of its own, so going back pops it; leaving by the Back button goes back
-   * through the same history, which keeps the two in step.
+   * shop or Settings rather than leaving the game (§3). Opening one pushes an
+   * entry of its own, so going back pops it; leaving by the Back button goes
+   * back through the same history, which keeps the two in step.
    */
-  let shopInHistory = false;
-  function pushShopHistory(): void {
-    if (shopInHistory) return;
+  let screenInHistory = false;
+  function pushScreenHistory(): void {
+    if (screenInHistory) return;
     try {
-      window.history.pushState({ slideRushShop: true }, '');
-      shopInHistory = true;
+      window.history.pushState({ slideRushScreen: true }, '');
+      screenInHistory = true;
     } catch {
       // Some browsers refuse pushState on a file:// page. The Back button
       // still works; the gesture simply leaves the page, as it did before.
-      shopInHistory = false;
+      screenInHistory = false;
     }
   }
-  function leaveShop(): void {
-    if (shopInHistory) {
+  function leaveScreen(): void {
+    if (screenInHistory) {
       // The popstate below is what actually goes home.
       window.history.back();
       return;
@@ -232,31 +240,84 @@ function boot(): void {
     handleEvent('home');
   }
   window.addEventListener('popstate', () => {
-    shopInHistory = false;
-    if (flow.phase === 'shop') handleEvent('home');
+    screenInHistory = false;
+    if (flow.phase === 'shop' || flow.phase === 'settings') handleEvent('home');
   });
 
   const screens = createScreens({
     onEvent: handleEvent,
     onToggleSound() {
       const muted = !(save.data.sfxOff && save.data.musicOff);
-      save.update({ sfxOff: muted, musicOff: muted });
-      screens.setMuted(muted);
-      audio.setMuted(muted);
+      setSound({ sfxOff: muted, musicOff: muted });
       // Sound coming back on says so, out loud.
       if (!muted) audio.play('uiTap');
     },
-    onToggleEffects() {
-      const effectsOff = !save.data.effectsOff;
-      save.update({ effectsOff });
-      screens.setEffectsOff(effectsOff);
-      feedback.setEnabled(!effectsOff);
-      // Coming back on, it shows itself: one small buzz and flash.
-      if (!effectsOff) feedback.play('stumble');
-    },
+    onToggleEffects: toggleEffects,
     onSkipTutorial() {
       skipTutorial(state.tutorial);
       save.update({ tutorialSeen: true });
+    },
+    onTap() {
+      audio.play('uiTap');
+    },
+  });
+
+  /** The sound switches: saved, heard, and shown on both screens that have them. */
+  function setSound(changes: { sfxOff?: boolean; musicOff?: boolean }): void {
+    save.update(changes);
+    audio.setSfxOff(save.data.sfxOff);
+    audio.setMusicOff(save.data.musicOff);
+    screens.setMuted(save.data.sfxOff && save.data.musicOff);
+    settingsScreen.setValues(save.data);
+  }
+
+  function toggleEffects(): void {
+    const effectsOff = !save.data.effectsOff;
+    save.update({ effectsOff });
+    screens.setEffectsOff(effectsOff);
+    settingsScreen.setValues(save.data);
+    feedback.setEnabled(!effectsOff);
+    // Coming back on, it shows itself: one small buzz and flash.
+    if (!effectsOff) feedback.play('stumble');
+  }
+
+  /**
+   * Switches the look (docs/VISUAL-STYLES.md §2), straight away. It can only
+   * happen on the Settings screen, never during a run, so the renderer is
+   * simply thrown away and built again in the new look; the run, the save and
+   * the shop never notice.
+   */
+  function applyVisualStyle(style: VisualStyle): void {
+    document.documentElement.dataset['style'] = style;
+    if (style === visualStyle()) return;
+    renderer.dispose();
+    setVisualStyle(style);
+    try {
+      renderer = createRenderer(canvas, resolveRider(shop.equipped.animal, shop.equipped.ring));
+    } catch (error) {
+      console.error('Slide Rush: could not rebuild WebGL', error);
+      showMessage(STRINGS.webglUnsupported);
+      return;
+    }
+    // The rider pictures on the title and in the shop sit on the look's sky.
+    shopScreen.setState(shop);
+  }
+
+  const settingsScreen = createSettingsScreen({
+    onStyle(style) {
+      save.update({ visualStyle: style });
+      applyVisualStyle(style);
+      settingsScreen.setValues(save.data);
+    },
+    onToggleSfx() {
+      setSound({ sfxOff: !save.data.sfxOff });
+    },
+    onToggleMusic() {
+      setSound({ musicOff: !save.data.musicOff });
+    },
+    onToggleEffects: toggleEffects,
+    onBack() {
+      leaveScreen();
     },
     onTap() {
       audio.play('uiTap');
@@ -286,7 +347,7 @@ function boot(): void {
       applyShop(equip(shop, kind, id));
     },
     onBack() {
-      leaveShop();
+      leaveScreen();
     },
     onTap() {
       audio.play('uiTap');
