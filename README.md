@@ -6,7 +6,7 @@ An endless runner set on a water-park slide, in the spirit of Subway Surfers. Ri
 
 <p>
   <img src="docs/screenshots/title.jpg" alt="Title screen: a duck in a donut ring, under a pixel sunset" width="240" />
-  <img src="docs/screenshots/play.jpg" alt="Sliding past a stack of crates, with grass, palms and huts along the slide" width="240" />
+  <img src="docs/screenshots/play.jpg" alt="Riding toward an obstacle, with coins on the slide and pixel hills, trees and huts behind" width="240" />
   <img src="docs/screenshots/shop.jpg" alt="The shop: trying a toilet seat on the duck before buying it" width="240" />
 </p>
 
