@@ -99,16 +99,6 @@ function toTexture(ctx: CanvasRenderingContext2D, smoothable = false): CanvasTex
   return texture;
 }
 
-/** Two colours mixed, `t` of the way from the first to the second. */
-function mixColors(from: number, to: number, t: number): number {
-  const channel = (shift: number): number => {
-    const a = (from >> shift) & 0xff;
-    const b = (to >> shift) & 0xff;
-    return Math.round(a + (b - a) * t) << shift;
-  };
-  return channel(16) | channel(8) | channel(0);
-}
-
 /** One pixel. */
 function px(ctx: CanvasRenderingContext2D, x: number, y: number, css: string): void {
   ctx.fillStyle = css;
@@ -200,6 +190,7 @@ function bayer(x: number, y: number): number {
 export function createSkyTexture(): CanvasTexture {
   const { width, height, ditherCentre, ditherHeight, sunRadius, sunX, sunY, sunGlowGrow } =
     RETRO.sky;
+  if (!theme().skyDither) return createSmoothSkyTexture();
   const ctx = pixelCanvas(width, height);
 
   const top = colorToCss(palette().skyTop);
@@ -207,17 +198,10 @@ export function createSkyTexture(): CanvasTexture {
   const bandTop = (ditherCentre - ditherHeight / 2) * height;
   const bandBottom = (ditherCentre + ditherHeight / 2) * height;
 
-  const dither = theme().skyDither;
   for (let y = 0; y < height; y += 1) {
     // How much of the lower colour this row wants, 0..1.
     const mix =
       bandBottom === bandTop ? 1 : Math.min(1, Math.max(0, (y - bandTop) / (bandBottom - bandTop)));
-    if (!dither) {
-      // A smooth look fades one colour into the other instead.
-      ctx.fillStyle = colorToCss(mixColors(palette().skyTop, palette().skyBottom, mix));
-      ctx.fillRect(0, y, width, 1);
-      continue;
-    }
     for (let x = 0; x < width; x += 1) {
       px(ctx, x, y, mix > bayer(x, y) ? bottom : top);
     }
@@ -236,14 +220,56 @@ export function createSkyTexture(): CanvasTexture {
       const distance = Math.sqrt(dx * dx + dy * dy);
       if (distance <= sunRadius) {
         px(ctx, x, y, colorToCss(palette().sun));
-      } else if (
-        distance <= glow &&
-        (dither ? bayer(x, y) : 0.5) < 1 - (distance - sunRadius) / sunGlowGrow
-      ) {
+      } else if (distance <= glow && bayer(x, y) < 1 - (distance - sunRadius) / sunGlowGrow) {
         px(ctx, x, y, colorToCss(palette().sunGlow));
       }
     }
   }
+
+  return toTexture(ctx, true);
+}
+
+/**
+ * How many times finer a smooth look paints the sky and hills than the pixel
+ * looks do, so that smoothing them up shows soft curves rather than blurred
+ * steps (docs/VISUAL-STYLES.md §1).
+ */
+const SMOOTH_ZOOM = 4;
+
+/**
+ * The sky for a smooth look: the same two colours and the same sun, faded
+ * rather than dithered, and round rather than stepped.
+ */
+function createSmoothSkyTexture(): CanvasTexture {
+  const { width, height, ditherCentre, ditherHeight, sunRadius, sunX, sunY, sunGlowGrow } =
+    RETRO.sky;
+  const ctx = pixelCanvas(width * SMOOTH_ZOOM, height * SMOOTH_ZOOM);
+  ctx.imageSmoothingEnabled = true;
+  ctx.scale(SMOOTH_ZOOM, SMOOTH_ZOOM);
+
+  const fade = ctx.createLinearGradient(0, 0, 0, height);
+  const top = colorToCss(palette().skyTop);
+  const bottom = colorToCss(palette().skyBottom);
+  fade.addColorStop(0, top);
+  fade.addColorStop(Math.max(0, ditherCentre - ditherHeight / 2), top);
+  fade.addColorStop(Math.min(1, ditherCentre + ditherHeight / 2), bottom);
+  fade.addColorStop(1, bottom);
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, 0, width, height);
+
+  const cx = sunX * width;
+  const cy = sunY * height;
+  const glow = ctx.createRadialGradient(cx, cy, sunRadius, cx, cy, sunRadius + sunGlowGrow);
+  glow.addColorStop(0, colorToCss(palette().sunGlow));
+  glow.addColorStop(1, `${colorToCss(palette().sunGlow)}00`);
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(cx, cy, sunRadius + sunGlowGrow, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = colorToCss(palette().sun);
+  ctx.beginPath();
+  ctx.arc(cx, cy, sunRadius, 0, Math.PI * 2);
+  ctx.fill();
 
   return toTexture(ctx, true);
 }
@@ -265,6 +291,7 @@ export function createSkyTexture(): CanvasTexture {
  * @param height the layer's height, in pixels
  */
 export function createHillTexture(layer: number, tileWidth: number, height: number): CanvasTexture {
+  if (theme().smoothTextures) return createSmoothHillTexture(layer, tileWidth, height);
   const ctx = pixelCanvas(tileWidth, height);
   const ridge = hillRidge(layer, tileWidth, height);
   const body = colorToCss(layer === 0 ? palette().mountain : palette().mountainDark);
@@ -285,6 +312,33 @@ export function createHillTexture(layer: number, tileWidth: number, height: numb
 
   const texture = toTexture(ctx, true);
   // Repeated sideways along the strip; never mipmapped.
+  texture.wrapS = RepeatWrapping;
+  return texture;
+}
+
+/**
+ * One layer of hills for a smooth look: the same ridge, drawn as one soft
+ * curve through the column tops at a finer size instead of pixel by pixel.
+ * Its UV layout is the pixel one's, so the strip places it the same way.
+ */
+function createSmoothHillTexture(layer: number, tileWidth: number, height: number): CanvasTexture {
+  const ridge = hillRidge(layer, tileWidth, height);
+  const ctx = pixelCanvas(tileWidth * SMOOTH_ZOOM, height * SMOOTH_ZOOM);
+  ctx.imageSmoothingEnabled = true;
+  ctx.scale(SMOOTH_ZOOM, SMOOTH_ZOOM);
+  ctx.fillStyle = colorToCss(layer === 0 ? palette().mountain : palette().mountainDark);
+  ctx.beginPath();
+  ctx.moveTo(0, height);
+  // One step past each end, wrapping round, so the repeat joins without a seam.
+  for (let x = -1; x <= tileWidth + 1; x += 1) {
+    const top = height - (ridge[(x + tileWidth) % tileWidth] as number);
+    ctx.lineTo(x + 0.5, top);
+  }
+  ctx.lineTo(tileWidth, height);
+  ctx.closePath();
+  ctx.fill();
+
+  const texture = toTexture(ctx, true);
   texture.wrapS = RepeatWrapping;
   return texture;
 }
