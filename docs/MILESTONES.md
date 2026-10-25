@@ -2,7 +2,7 @@
 
 Build in this order. One milestone per Claude Code session (or more if needed). After each one: Sagi plays it on phone + desktop, then we continue.
 
-Each milestone has a **prompt** to paste into Claude Code as-is. M0–M8 follow `docs/SPEC.md`; M9–M12 follow `docs/ART-AND-SHOP.md`.
+Each milestone has a **prompt** to paste into Claude Code as-is. M0–M8 follow `docs/SPEC.md`; M9–M12 follow `docs/ART-AND-SHOP.md`; M13 follows `docs/VISUAL-STYLES.md`.
 
 ---
 
@@ -118,6 +118,15 @@ Phone QA pass, price tuning, bug fixes, updated README screenshots, tag `v0.2.0`
 **Done when:** the v0.2 QA checklist passes on a phone and the tag is pushed.
 
 > Prompt: `Do Milestone M12 from docs/ART-AND-SHOP.md. Give me a QA checklist to run on my phone before we tag v0.2.0.`
+
+---
+
+## M13 — Visual styles
+Three looks chosen in a new Settings screen: Sunset Pixel (v0.2, default), Classic 3D and Retro Pixel. Sound effects and music get separate switches.
+
+**Done when:** all three styles can be chosen and survive a reload, Sunset Pixel looks exactly like v0.2, the game plays the same in each, and tests/build/lint pass.
+
+> Prompt: `Do Milestone M13 from docs/VISUAL-STYLES.md.`
 
 ---
 
