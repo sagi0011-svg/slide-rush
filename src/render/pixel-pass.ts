@@ -26,10 +26,16 @@ import {
   type WebGLRenderer,
 } from 'three';
 import type { PixelGrid, TargetSize } from './retro';
+import type { Backdrop } from './sky';
 
 export interface PixelPass {
-  /** Draws the scene into the small target, then blows it up onto the canvas. */
-  render(scene: Scene, camera: Camera): void;
+  /**
+   * Draws the scene into the small target, then blows it up onto the canvas.
+   *
+   * @param backdrop a flat 2D picture drawn into the target first, behind the
+   *   scene (the sky and hills, sky.ts); null for none
+   */
+  render(scene: Scene, camera: Camera, backdrop: Backdrop | null): void;
   /**
    * Takes on a new layout: the target's size and where it lands on the
    * canvas (see `pixelGrid` in retro.ts).
@@ -94,13 +100,26 @@ export function createPixelPass(renderer: WebGLRenderer, borderColor: number): P
   let sceneTriangles = 0;
 
   return {
-    render(scene, camera) {
+    render(scene, camera, backdrop) {
       renderer.setRenderTarget(target);
       renderer.clear();
+      sceneDrawCalls = 0;
+      sceneTriangles = 0;
+      if (backdrop !== null) {
+        renderer.render(backdrop.scene, backdrop.camera);
+        sceneDrawCalls += renderer.info.render.calls;
+        sceneTriangles += renderer.info.render.triangles;
+        // The scene goes on top of the backdrop, so only depth is cleared
+        // between them: clearing colour would wipe the sky and hills.
+        renderer.clearDepth();
+      }
+      const autoClear = renderer.autoClear;
+      renderer.autoClear = false;
       renderer.render(scene, camera);
+      renderer.autoClear = autoClear;
       // Read before the upscale resets them; see sceneDrawCalls above.
-      sceneDrawCalls = renderer.info.render.calls;
-      sceneTriangles = renderer.info.render.triangles;
+      sceneDrawCalls += renderer.info.render.calls;
+      sceneTriangles += renderer.info.render.triangles;
       renderer.setRenderTarget(null);
 
       // Paint the whole canvas in the frame colour, then lay the picture on

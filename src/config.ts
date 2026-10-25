@@ -632,25 +632,48 @@ export const RETRO = {
     sunGlowGrow: 4,
   },
   /**
-   * Two layers of hills behind the slide. They ride with the camera, so they
-   * never come closer however far the player travels; `parallax` is how much
-   * of the camera's sideways move each layer copies, which is what makes the
-   * near layer slide against the far one.
+   * Two layers of hills behind the slide, drawn as a flat 2D pixel backdrop
+   * rather than as surfaces in the 3D world (src/render/hill-layout.ts).
+   *
+   * One hill pixel is exactly one game pixel, and the layers only ever move by
+   * whole pixels, so the ridge can shift but never crawl. They still follow the
+   * camera — `distance` and `lift` say where in the world each layer's middle
+   * would be, and that point is projected each frame to place it — and
+   * `parallax` is how much of the camera's sideways move each layer copies,
+   * which is what makes the near layer slide against the far one.
    */
   hills: {
-    /** How far in front of the camera each layer sits, in units. */
+    /** How far in front of the camera each layer's middle is, in units. */
     distance: [195, 170],
-    /** Width and height of each layer, in units. */
-    width: [560, 460],
-    height: [76, 54],
-    /** How far above the camera's eye line each layer is centred, in units. */
+    /** How far above the camera's eye line each layer's middle is, in units. */
     lift: [9, 1],
     /** Share of the camera's sideways move each layer copies, 0..1. */
     parallax: [0.12, 0.26],
-    /** How many hill humps are painted across one layer. */
-    humps: [7, 5],
-    /** Pixels across each layer's painted silhouette. */
-    pixels: 128,
+    /**
+     * Each layer's height as a share of the game picture's height. Chosen to
+     * match the size the hills had as 3D surfaces, so the scene looks the same.
+     */
+    heightShare: [0.337, 0.275],
+    /** Width of one repeat of the ridge, as a multiple of the layer's height. */
+    tileAspect: [2.1, 2.55],
+    /** Humps per repeat. Whole numbers, so the repeat has no seam. */
+    periods: [4, 3],
+    /** No layer is ever drawn smaller than this, in game pixels. */
+    minHeight: 8,
+    /**
+     * The shape of the ridge, as shares of the layer's height: a resting
+     * level, a main wave for the humps, and a smaller detail wave at a
+     * different rhythm so the humps are not all the same.
+     */
+    ridge: {
+      base: 0.62,
+      main: 0.3,
+      detail: 0.12,
+      /** Detail waves per main wave (rounded to a whole number per repeat). */
+      detailRatio: 2.3,
+      /** Where the detail wave starts, in radians. */
+      detailPhase: 1.1,
+    },
   },
   /** The slide surface: pixel water with stripes that scroll past (section 1). */
   water: {

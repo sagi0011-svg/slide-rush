@@ -117,8 +117,9 @@ export function createRenderer(canvas: HTMLCanvasElement, riderPair: RiderPair):
 
   for (const light of createLights()) scene.add(light);
 
-  // The sky sets scene.background itself, and adds the two layers of hills.
-  const sky: Sky = createSky(scene);
+  // The sky and hills are a flat 2D backdrop drawn behind the scene, not part
+  // of it (sky.ts), so the scene itself has no background.
+  const sky: Sky = createSky();
 
   const texture = createSlideTexture();
   const track: Track = createTrack(scene, texture);
@@ -169,6 +170,7 @@ export function createRenderer(canvas: HTMLCanvasElement, riderPair: RiderPair):
     camera.aspect = grid.target.width / grid.target.height;
     camera.updateProjectionMatrix();
     pixelPass.resize(grid);
+    sky.resize(grid.target);
     // The outlines are measured in game pixels, so they need to know how many.
     setOutlineResolution(grid.target.width, grid.target.height);
   };
@@ -267,11 +269,12 @@ export function createRenderer(canvas: HTMLCanvasElement, riderPair: RiderPair):
       // The rider turns square to the camera, so it too goes after it.
       rider.faceCamera(camera);
 
-      // The hills ride with the camera, so they must be moved after it.
+      // The hills follow the camera, so they are placed after it moves.
       sky.update(camera);
 
-      // Into the small target, then blown up onto the canvas (§1).
-      pixelPass.render(scene, camera);
+      // The backdrop, then the scene, into the small target, then blown up
+      // onto the canvas (§1).
+      pixelPass.render(scene, camera, sky.backdrop);
     },
     resize,
     measure(frameSeconds) {

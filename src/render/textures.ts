@@ -22,6 +22,7 @@ import {
 import { LANES, PALETTE, RETRO, TRACK } from '../config';
 import type { PowerUpType } from '../game/powerups';
 import { ATLAS_SIZE, atlasEntries, COIN_ICON, SPRITE_LEGEND } from './sprites';
+import { hillRidge } from './hill-layout';
 
 /** A palette colour as CSS, for the 2D canvas. */
 export function colorToCss(hex: number): string {
@@ -219,42 +220,43 @@ export function createSkyTexture(): CanvasTexture {
 }
 
 /**
- * One layer of hills: a row of humps in silhouette, clear above them, so it
- * can hang in front of the sky. The two layers differ in colour, height and
- * how many humps they have, which is what makes the parallax between them
- * read as distance.
+ * One layer of hills: a row of humps in silhouette, clear above them, painted
+ * at exactly the size it is drawn on screen — one texel per game pixel — so
+ * no pixel of it is ever stretched (src/render/hill-layout.ts).
+ *
+ * The ridge comes from `hillRidge`, which the tests also read. The near layer
+ * gets the dark rim along its top; the far one does not, because at that
+ * distance an outline reads as a line drawn on the sky rather than the edge of
+ * a hill. The rim follows the ridge round from the last column to the first,
+ * since the texture repeats sideways: checking against the canvas edge
+ * instead would draw a dark line at every join.
  *
  * @param layer 0 for the far layer, 1 for the near one
+ * @param tileWidth one repeat of the ridge, in pixels
+ * @param height the layer's height, in pixels
  */
-export function createHillTexture(layer: number): CanvasTexture {
-  const width = RETRO.hills.pixels;
-  const height = Math.round(width / 4);
-  const ctx = pixelCanvas(width, height);
-  const humps = RETRO.hills.humps[layer] ?? 5;
-  const body = layer === 0 ? PALETTE.mountain : PALETTE.mountainDark;
+export function createHillTexture(layer: number, tileWidth: number, height: number): CanvasTexture {
+  const ctx = pixelCanvas(tileWidth, height);
+  const ridge = hillRidge(layer, tileWidth, height);
+  const body = colorToCss(layer === 0 ? PALETTE.mountain : PALETTE.mountainDark);
+  const rim = colorToCss(PALETTE.outline);
+  const outlined = layer !== 0;
 
-  // A ridge line made of overlapping humps, highest in the middle of each.
-  const ridge = (x: number): number => {
-    const t = (x / width) * humps * Math.PI;
-    // Two waves of different lengths, so the humps are not all the same size.
-    const h = 0.62 + 0.3 * Math.sin(t) + 0.12 * Math.sin(t * 2.3 + 1.1);
-    return Math.round(h * height);
-  };
-
-  fillMask(
-    ctx,
-    { x: 0, y: 0, width, height },
-    (x, y) => y >= height - ridge(x),
-    body,
-    // The far layer gets no dark rim: at that distance an outline reads as a
-    // line drawn on the sky rather than as the edge of a hill.
-    layer === 0 ? body : PALETTE.outline,
-  );
+  // Rows count down from the top of the canvas; a column's hill starts at row
+  // height - ridge and runs to the bottom.
+  const top = (x: number): number => height - (ridge[(x + tileWidth) % tileWidth] as number);
+  for (let x = 0; x < tileWidth; x += 1) {
+    const start = top(x);
+    for (let y = start; y < height; y += 1) {
+      // On the rim if the pixel above is sky, or a neighbour sideways is.
+      const edge = outlined && (y === start || y < top(x - 1) || y < top(x + 1));
+      px(ctx, x, y, edge ? rim : body);
+    }
+  }
 
   const texture = toTexture(ctx);
-  // Repeated sideways, so sliding it for the parallax never runs out of hills.
+  // Repeated sideways along the strip; never smoothed, never mipmapped.
   texture.wrapS = RepeatWrapping;
-  texture.repeat.set(4, 1);
   return texture;
 }
 

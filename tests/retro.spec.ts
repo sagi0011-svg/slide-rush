@@ -144,15 +144,17 @@ describe('retro settings', () => {
   });
 
   it('describes two layers of hills, the nearer one moving more', () => {
-    const { distance, parallax, width, height, lift, humps } = RETRO.hills;
+    const { distance, parallax, lift, heightShare, tileAspect, periods } = RETRO.hills;
     expect(distance).toHaveLength(2);
-    for (const list of [parallax, width, height, lift, humps]) {
+    for (const list of [parallax, lift, heightShare, tileAspect, periods]) {
       expect(list).toHaveLength(2);
     }
     // The near layer must slide further than the far one, or there is no
     // parallax between them at all.
     expect(parallax[1]).toBeGreaterThan(parallax[0]);
     expect(distance[1]).toBeLessThan(distance[0]);
+    // Whole humps per repeat, or the repeat shows a seam (hill-layout.ts).
+    for (const p of periods) expect(Number.isInteger(p)).toBe(true);
   });
 
   it('spins the coin through whole frames of its strip', () => {
