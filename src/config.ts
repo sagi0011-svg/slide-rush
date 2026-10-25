@@ -500,7 +500,20 @@ export const SAVE = {
   starterRing: 'tube',
   /** A saved id longer than this is junk, not an id. */
   maxIdLength: 32,
+  /**
+   * The look a fresh save starts with (docs/VISUAL-STYLES.md §2): the v0.2
+   * look, so nothing changes for anyone until they choose another.
+   */
+  defaultVisualStyle: 'sunset',
 } as const;
+
+/**
+ * The three looks the player can choose between in Settings
+ * (docs/VISUAL-STYLES.md §1), in the order their cards are laid out. A look is
+ * only ever a picture: nothing in src/game/ reads it.
+ */
+export const VISUAL_STYLES = ['sunset', 'classic', 'pixel'] as const;
+export type VisualStyle = (typeof VISUAL_STYLES)[number];
 
 /**
  * The shop (docs/ART-AND-SHOP.md section 3).

@@ -2,9 +2,11 @@
  * What survives between runs (SPEC 10).
  *
  * Best score, every coin ever collected and not yet spent, whether the
- * tutorial has been seen, whether sound is muted, whether the shake and
- * flash of a hit are turned off, which animals and rings have been bought in
- * the shop, and which pair the player rides (docs/ART-AND-SHOP.md §2 and §3).
+ * tutorial has been seen, whether the sound effects and the music are off,
+ * whether the shake and flash of a hit are turned off, which animals and rings
+ * have been bought in the shop, which pair the player rides
+ * (docs/ART-AND-SHOP.md §2 and §3) and which look the game is drawn in
+ * (docs/VISUAL-STYLES.md).
  *
  * The storage itself is handed in rather than reached for, so the rules can be
  * tested without a browser. Nothing here may ever throw: private browsing,
@@ -12,7 +14,7 @@
  * game that cannot remember your best score should still be playable.
  */
 
-import { SAVE } from '../config';
+import { SAVE, VISUAL_STYLES, type VisualStyle } from '../config';
 import { createShopState, ITEM_KINDS, ownedList, type ItemKind, type ShopState } from './shop';
 
 export interface SaveData {
@@ -25,8 +27,13 @@ export interface SaveData {
   totalCoins: number;
   /** Whether the first-run tutorial has been completed (M6). */
   tutorialSeen: boolean;
-  /** Whether sound is off (M7). */
-  muted: boolean;
+  /**
+   * Whether the sound effects are off, and whether the music is (M13). One
+   * switch, `muted`, used to cover both; a save that still has it turns both
+   * off, so nobody's game starts making noise.
+   */
+  sfxOff: boolean;
+  musicOff: boolean;
   /** Whether vibration, the screen flash and the camera shake are off. */
   effectsOff: boolean;
   /**
@@ -45,6 +52,11 @@ export interface SaveData {
    */
   ownedAnimals: string[];
   ownedRings: string[];
+  /**
+   * Which look the game is drawn in (docs/VISUAL-STYLES.md). Only ever a
+   * picture: the rules never read it.
+   */
+  visualStyle: VisualStyle;
 }
 
 /** The little bit of localStorage this needs; easy to stand in for in a test. */
@@ -58,12 +70,14 @@ export function defaultSave(): SaveData {
     bestScore: 0,
     totalCoins: 0,
     tutorialSeen: false,
-    muted: false,
+    sfxOff: false,
+    musicOff: false,
     effectsOff: false,
     equippedAnimal: SAVE.starterAnimal,
     equippedRing: SAVE.starterRing,
     ownedAnimals: ownedList('animal', null),
     ownedRings: ownedList('ring', null),
+    visualStyle: SAVE.defaultVisualStyle,
   };
 }
 
@@ -74,6 +88,11 @@ function wholeNumber(value: unknown, fallback: number): number {
 
 function flag(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
+}
+
+/** One of the looks this build can draw; anything else is the default. */
+function visualStyle(value: unknown): VisualStyle {
+  return VISUAL_STYLES.find((style) => style === value) ?? SAVE.defaultVisualStyle;
 }
 
 /** An id: any short, non-empty string. Anything else is replaced. */
@@ -105,12 +124,14 @@ export function parseSave(raw: string | null): SaveData {
     bestScore: wholeNumber(data['bestScore'], fresh.bestScore),
     totalCoins: wholeNumber(data['totalCoins'], fresh.totalCoins),
     tutorialSeen: flag(data['tutorialSeen'], fresh.tutorialSeen),
-    muted: flag(data['muted'], fresh.muted),
+    sfxOff: flag(data['sfxOff'], flag(data['muted'], fresh.sfxOff)),
+    musicOff: flag(data['musicOff'], flag(data['muted'], fresh.musicOff)),
     effectsOff: flag(data['effectsOff'], fresh.effectsOff),
     equippedAnimal: id(data['equippedAnimal'], fresh.equippedAnimal),
     equippedRing: id(data['equippedRing'], fresh.equippedRing),
     ownedAnimals: ownedList('animal', data['ownedAnimals']),
     ownedRings: ownedList('ring', data['ownedRings']),
+    visualStyle: visualStyle(data['visualStyle']),
   };
 }
 

@@ -128,7 +128,8 @@ function boot(): void {
   const feedback = createFeedback(document.getElementById('flash'));
   feedback.setEnabled(!save.data.effectsOff);
   const audio = createAudioManager();
-  audio.setMuted(save.data.muted);
+  audio.setSfxOff(save.data.sfxOff);
+  audio.setMusicOff(save.data.musicOff);
   audio.prepare();
   // Browsers refuse to vibrate or play sound until the player has touched the
   // page, and complain loudly about every attempt before then (SPEC 12).
@@ -234,8 +235,8 @@ function boot(): void {
   const screens = createScreens({
     onEvent: handleEvent,
     onToggleSound() {
-      const muted = !save.data.muted;
-      save.update({ muted });
+      const muted = !(save.data.sfxOff && save.data.musicOff);
+      save.update({ sfxOff: muted, musicOff: muted });
       screens.setMuted(muted);
       audio.setMuted(muted);
       // Sound coming back on says so, out loud.
@@ -291,7 +292,7 @@ function boot(): void {
 
   screens.show(flow.phase);
   screens.setBestScore(save.data.bestScore);
-  screens.setMuted(save.data.muted);
+  screens.setMuted(save.data.sfxOff && save.data.musicOff);
   screens.setEffectsOff(save.data.effectsOff);
   audio.setPhase(flow.phase);
   state.paused = true;

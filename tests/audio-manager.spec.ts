@@ -333,3 +333,50 @@ describe('watching a run', () => {
     expect(engine.played).toHaveLength(1);
   });
 });
+
+describe('separate switches for effects and music (docs/VISUAL-STYLES.md section 3)', () => {
+  it('keeps the music playing with the effects off, and drops the water', () => {
+    const { engine, audio } = setup();
+    audio.unlock();
+    audio.setPhase('playing');
+    audio.setSfxOff(true);
+    audio.play('coin');
+    expect(engine.played).toEqual([]);
+    expect(lastBeds(engine)).toEqual([1, 0]);
+    expect(audio.muted).toBe(false);
+    expect(engine.mutes).toEqual([]);
+  });
+
+  it('keeps the effects with the music off', () => {
+    const { engine, audio } = setup();
+    audio.unlock();
+    audio.setPhase('playing');
+    audio.setMusicOff(true);
+    audio.play('coin');
+    expect(engine.played.map((p) => p.name)).toEqual(['coin']);
+    expect(lastBeds(engine)).toEqual([0, 1]);
+  });
+
+  it('goes fully silent, and builds nothing, only with both off', () => {
+    const { engine, audio } = setup();
+    audio.setSfxOff(true);
+    audio.setMusicOff(true);
+    expect(audio.muted).toBe(true);
+    expect(engine.mutes).toEqual([true]);
+    audio.prepare();
+    expect(engine.prepares).toBe(0);
+    audio.unlock();
+    expect(engine.starts).toBe(0);
+  });
+
+  it('starts sound again when one switch comes back on', () => {
+    const { engine, audio } = setup();
+    audio.unlock();
+    audio.setMuted(true);
+    const starts = engine.starts;
+    audio.setMusicOff(false);
+    expect(audio.muted).toBe(false);
+    expect(engine.mutes).toEqual([true, false]);
+    expect(engine.starts).toBe(starts + 1);
+  });
+});

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SAVE } from '../src/config';
+import { SAVE, VISUAL_STYLES } from '../src/config';
 import {
   createSaveStore,
   defaultSave,
@@ -49,12 +49,14 @@ describe('parseSave (SPEC 10)', () => {
       bestScore: 1234,
       totalCoins: 56,
       tutorialSeen: true,
-      muted: true,
+      sfxOff: true,
+      musicOff: false,
       effectsOff: true,
       equippedAnimal: 'bear',
       equippedRing: 'toilet',
       ownedAnimals: ['frog', 'bear'],
       ownedRings: ['tube', 'toilet'],
+      visualStyle: 'pixel',
     };
     expect(parseSave(JSON.stringify(data))).toEqual(data);
   });
@@ -71,14 +73,16 @@ describe('parseSave (SPEC 10)', () => {
         bestScore: 'lots',
         totalCoins: 7,
         tutorialSeen: 'yes',
-        muted: true,
+        sfxOff: true,
+        musicOff: 1,
         effectsOff: 'off',
       }),
     );
     expect(parsed.bestScore).toBe(0);
     expect(parsed.totalCoins).toBe(7);
     expect(parsed.tutorialSeen).toBe(false);
-    expect(parsed.muted).toBe(true);
+    expect(parsed.sfxOff).toBe(true);
+    expect(parsed.musicOff).toBe(false);
     expect(parsed.effectsOff).toBe(false);
   });
 
@@ -117,7 +121,13 @@ describe('the equipped rider (docs/ART-AND-SHOP.md section 2)', () => {
     };
     const parsed = parseSave(JSON.stringify(old));
     expect(parsed).toEqual({
-      ...old,
+      bestScore: 900,
+      totalCoins: 321,
+      tutorialSeen: true,
+      effectsOff: false,
+      sfxOff: true,
+      musicOff: true,
+      visualStyle: 'sunset',
       equippedAnimal: 'frog',
       equippedRing: 'tube',
       ownedAnimals: ['frog'],
@@ -345,9 +355,12 @@ describe('the save store', () => {
 
   it('leaves the other settings alone when a run ends', () => {
     const store = createSaveStore(fakeStorage());
-    store.update({ muted: true, tutorialSeen: true, effectsOff: true });
+    store.update({ sfxOff: true, musicOff: true, tutorialSeen: true, effectsOff: true });
+    store.update({ visualStyle: 'classic' });
     store.finishRun(400, 2);
-    expect(store.data.muted).toBe(true);
+    expect(store.data.sfxOff).toBe(true);
+    expect(store.data.musicOff).toBe(true);
+    expect(store.data.visualStyle).toBe('classic');
     expect(store.data.effectsOff).toBe(true);
     expect(store.data.tutorialSeen).toBe(true);
   });
@@ -360,7 +373,7 @@ describe('the save store', () => {
     // The run still gets a best score, it just will not be there next time.
     store.finishRun(700, 4);
     expect(store.data.bestScore).toBe(700);
-    expect(() => store.update({ muted: true })).not.toThrow();
+    expect(() => store.update({ sfxOff: true, visualStyle: 'pixel' })).not.toThrow();
   });
 
   it('carries on when writing fails, and says it did not save', () => {
@@ -390,5 +403,74 @@ describe('the save store', () => {
     expect(store.data).toEqual(defaultSave());
     store.finishRun(42, 1);
     expect(createSaveStore(storage).data.bestScore).toBe(42);
+  });
+});
+
+describe('sound and music switches (docs/VISUAL-STYLES.md section 3)', () => {
+  it('start with both on', () => {
+    expect(defaultSave().sfxOff).toBe(false);
+    expect(defaultSave().musicOff).toBe(false);
+  });
+
+  it('turn both off for a save from when one switch covered both', () => {
+    const parsed = parseSave(JSON.stringify({ muted: true }));
+    expect(parsed.sfxOff).toBe(true);
+    expect(parsed.musicOff).toBe(true);
+    expect(parseSave(JSON.stringify({ muted: false })).sfxOff).toBe(false);
+  });
+
+  it('let the new switches win over the old one', () => {
+    const parsed = parseSave(JSON.stringify({ muted: true, sfxOff: false, musicOff: true }));
+    expect(parsed.sfxOff).toBe(false);
+    expect(parsed.musicOff).toBe(true);
+  });
+
+  it('never write the old switch back', () => {
+    const storage = fakeStorage({ [SAVE.key]: JSON.stringify({ muted: true }) });
+    createSaveStore(storage).update({ sfxOff: false });
+    const written = JSON.parse(storage.getItem(SAVE.key) ?? '{}') as Record<string, unknown>;
+    expect(written).not.toHaveProperty('muted');
+    expect(written['sfxOff']).toBe(false);
+    expect(written['musicOff']).toBe(true);
+  });
+});
+
+describe('the visual style (docs/VISUAL-STYLES.md section 2)', () => {
+  it('starts on the v0.2 look', () => {
+    expect(defaultSave().visualStyle).toBe('sunset');
+  });
+
+  it('reads back every style this build knows', () => {
+    for (const style of VISUAL_STYLES) {
+      expect(parseSave(JSON.stringify({ visualStyle: style })).visualStyle).toBe(style);
+    }
+  });
+
+  it('falls back to the default for anything else', () => {
+    for (const junk of ['neon', '', 'SUNSET', 3, null, ['pixel'], { style: 'pixel' }]) {
+      expect(parseSave(JSON.stringify({ visualStyle: junk })).visualStyle).toBe('sunset');
+    }
+  });
+
+  it('survives a reload', () => {
+    const storage = fakeStorage();
+    createSaveStore(storage).update({ visualStyle: 'classic' });
+    expect(createSaveStore(storage).data.visualStyle).toBe('classic');
+  });
+
+  it('is still usable when the storage throws on every call', () => {
+    const broken = {
+      getItem(): string | null {
+        throw new Error('blocked');
+      },
+      setItem(): void {
+        throw new Error('blocked');
+      },
+    };
+    const store = createSaveStore(broken);
+    expect(store.data.visualStyle).toBe('sunset');
+    store.update({ visualStyle: 'pixel' });
+    expect(store.data.visualStyle).toBe('pixel');
+    expect(store.persisted).toBe(false);
   });
 });

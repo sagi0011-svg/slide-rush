@@ -15,8 +15,10 @@
  *    counts: on a touch screen the browser only accepts lifting the finger,
  *    not putting it down, and a phone can hold audio back again after the
  *    app was switched away. So every gesture asks again, until it plays.
- *  - **Muted means muted.** The setting is saved (SPEC 10), and while it is on
- *    no context is started at all, so a muted game costs the battery nothing.
+ *  - **Muted means muted.** The sound effects and the music each have a saved
+ *    switch (SPEC 10, docs/VISUAL-STYLES.md §3). The water running under the
+ *    slide counts as an effect. With both off no context is started at all,
+ *    so a silent game costs the battery nothing.
  */
 
 import { AUDIO } from '../config';
@@ -31,7 +33,7 @@ export interface AudioManager {
   readonly unlocked: boolean;
   /** Builds the sounds in the background, unless sound is off. Call once at boot. */
   prepare(): void;
-  /** True while sound is switched off. Comes from the save (SPEC 10). */
+  /** True while both the effects and the music are off. Comes from the save. */
   readonly muted: boolean;
   /**
    * Called by every tap, click and key press. The first one allows sound; the
@@ -40,8 +42,12 @@ export interface AudioManager {
   unlock(): void;
   /** True while sound is actually coming out, as far as the browser says. */
   readonly running: boolean;
-  /** The sound button. */
+  /** Turns the effects and the music off, or back on, together. */
   setMuted(muted: boolean): void;
+  /** The sound effects switch: every effect, and the water under the slide. */
+  setSfxOff(off: boolean): void;
+  /** The music switch. */
+  setMusicOff(off: boolean): void;
   /** Plays one effect, unless it played a moment ago. */
   play(name: SfxName): void;
   /** Which screen the game is on, which decides what the loops do. */
@@ -77,7 +83,8 @@ export function createAudioManager(options: AudioManagerOptions = {}): AudioMana
   const watcher = createRunSoundWatcher();
 
   let unlocked = false;
-  let muted = false;
+  let sfxOff = false;
+  let musicOff = false;
   let hidden = false;
   let phase: AppPhase = 'start';
 
@@ -92,8 +99,10 @@ export function createAudioManager(options: AudioManagerOptions = {}): AudioMana
   // Reused every frame rather than rebuilt (CLAUDE.md rule 7).
   const pending: SfxName[] = [];
 
+  /** True while both switches are off: no sound may be made at all. */
+  const muted = (): boolean => sfxOff && musicOff;
   /** True while sound is both allowed and wanted. */
-  const live = (): boolean => unlocked && !muted;
+  const live = (): boolean => unlocked && !muted();
 
   const applyBeds = (): void => {
     if (!live()) {
@@ -103,7 +112,9 @@ export function createAudioManager(options: AudioManagerOptions = {}): AudioMana
     // Music carries on behind a screen, quieter; the water only runs while the
     // player is actually on the slide.
     const playing = phase === 'playing';
-    engine.setBeds(playing ? 1 : AUDIO.menuMusicLevel, playing ? 1 : 0);
+    const music = musicOff ? 0 : playing ? 1 : AUDIO.menuMusicLevel;
+    const water = sfxOff || !playing ? 0 : 1;
+    engine.setBeds(music, water);
   };
 
   /** How far a coin should be pitched up, for a run of coins collected together. */
@@ -116,11 +127,23 @@ export function createAudioManager(options: AudioManagerOptions = {}): AudioMana
 
   /** Plays an effect, unless it played a moment ago. */
   const playSound = (name: SfxName): void => {
-    if (!live()) return;
+    if (!live() || sfxOff) return;
     const at = now();
     if (at - lastPlayed[name] < minGapOf(name)) return;
     lastPlayed[name] = at;
     engine.playSfx(name, name === 'coin' ? coinPitch(at) : 1);
+  };
+
+  /** Both switches at once, so the engine hears about silence only once. */
+  const setSwitches = (nextSfxOff: boolean, nextMusicOff: boolean): void => {
+    if (nextSfxOff === sfxOff && nextMusicOff === musicOff) return;
+    const wasMuted = muted();
+    sfxOff = nextSfxOff;
+    musicOff = nextMusicOff;
+    if (muted() !== wasMuted) engine.setMuted(muted());
+    // Turning sound on is itself a tap, so it is allowed to start right here.
+    if (!muted() && unlocked) engine.start();
+    applyBeds();
   };
 
   return {
@@ -129,12 +152,12 @@ export function createAudioManager(options: AudioManagerOptions = {}): AudioMana
     },
 
     get muted() {
-      return muted;
+      return muted();
     },
 
     prepare() {
       // A muted player may never turn sound on; no point spending the memory.
-      if (!muted) engine.prepare();
+      if (!muted()) engine.prepare();
     },
 
     get running() {
@@ -146,17 +169,20 @@ export function createAudioManager(options: AudioManagerOptions = {}): AudioMana
       unlocked = true;
       // A muted game never builds an audio context in the first place. A
       // context the browser is still holding back is asked again.
-      if (!muted && !hidden && !engine.running) engine.start();
+      if (!muted() && !hidden && !engine.running) engine.start();
       if (first) applyBeds();
     },
 
     setMuted(next) {
-      if (next === muted) return;
-      muted = next;
-      engine.setMuted(next);
-      // Un-muting is itself a tap, so sound is allowed to start right here.
-      if (!muted && unlocked) engine.start();
-      applyBeds();
+      setSwitches(next, next);
+    },
+
+    setSfxOff(next) {
+      setSwitches(next, musicOff);
+    },
+
+    setMusicOff(next) {
+      setSwitches(sfxOff, next);
     },
 
     play: playSound,
@@ -177,7 +203,7 @@ export function createAudioManager(options: AudioManagerOptions = {}): AudioMana
       // sound of the silent stretch would fire the moment sound came back.
       pending.length = 0;
       watcher.drain(state, pending);
-      if (!live()) return;
+      if (!live() || sfxOff) return;
       for (const name of pending) playSound(name);
     },
 
