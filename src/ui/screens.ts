@@ -8,8 +8,9 @@
  */
 
 import type { AppPhase, FlowEvent } from '../game/flow';
+import type { NextGoal } from '../game/shop';
 import type { TutorialStepId } from '../game/tutorial';
-import { STRINGS } from './strings';
+import { fill, itemName, STRINGS } from './strings';
 
 export interface GameOverFacts {
   score: number;
@@ -20,6 +21,8 @@ export interface GameOverFacts {
   bestScore: number;
   /** True when this run beat the best score, for the badge. */
   isNewBest: boolean;
+  /** The next thing to play for, or null once everything is bought. */
+  goal: NextGoal | null;
 }
 
 export interface Screens {
@@ -144,13 +147,29 @@ export function createScreens(handlers: ScreensHandlers): Screens {
       if (pauseButton !== null) pauseButton.hidden = phase !== 'playing';
     },
 
-    setGameOver({ score, coins, totalCoins, bestScore, isNewBest }) {
+    setGameOver({ score, coins, totalCoins, bestScore, isNewBest, goal }) {
       setText('over-score', formatNumber(score));
       setText('over-coins', formatNumber(coins));
       setText('over-total', formatNumber(totalCoins));
       setText('over-best', formatNumber(bestScore));
       const badge = byId('over-newbest');
       if (badge !== null) badge.hidden = !isNewBest;
+
+      const line = byId('over-goal');
+      if (line !== null) {
+        line.hidden = goal === null;
+        if (goal !== null) {
+          const name = itemName(goal.item.kind, goal.item.id);
+          const ready = goal.missing === 0;
+          line.textContent = ready
+            ? fill(STRINGS.goal.ready, { name })
+            : fill(STRINGS.goal.missing, {
+                coins: `${STRINGS.coinSymbol} ${formatNumber(goal.missing)}`,
+                name,
+              });
+          line.classList.toggle('ready', ready);
+        }
+      }
     },
 
     setBestScore(best) {

@@ -16,6 +16,7 @@ import {
   itemsOfKind,
   itemStatus,
   ITEM_KINDS,
+  nextGoal,
   otherKind,
   ownedList,
   priceOf,
@@ -371,5 +372,70 @@ describe('what the shop can say (rule 9)', () => {
 
   it('names both tabs', () => {
     for (const kind of ITEM_KINDS) expect(STRINGS.shop.tabs[kind], kind).toBeTruthy();
+  });
+});
+
+/**
+ * The next goal on the game over screen: what keeps a player going "one more
+ * run". Checked against the real price table, so a price change cannot leave
+ * this pointing at the wrong thing.
+ */
+describe('the next goal', () => {
+  /** The cheapest item for sale that is not a starter, from the real prices. */
+  const cheapest = [...CATALOG]
+    .filter((item) => !item.starter)
+    .sort((a, b) => a.price - b.price)[0];
+
+  it('is the cheapest thing in the shop for a fresh player', () => {
+    const goal = nextGoal(createShopState({ coins: 0 }));
+    expect(goal?.item).toEqual(cheapest);
+    expect(goal?.missing).toBe(cheapest?.price);
+  });
+
+  it('says how many coins are still missing', () => {
+    const price = cheapest?.price ?? 0;
+    const goal = nextGoal(createShopState({ coins: price - 85 }));
+    expect(goal?.missing).toBe(85);
+  });
+
+  it('says zero, never less, once it can be bought', () => {
+    const price = cheapest?.price ?? 0;
+    expect(nextGoal(createShopState({ coins: price }))?.missing).toBe(0);
+    expect(nextGoal(createShopState({ coins: price * 10 }))?.missing).toBe(0);
+  });
+
+  it('never suggests a starter, which is owned from the start', () => {
+    for (let coins = 0; coins <= 6000; coins += 250) {
+      expect(nextGoal(createShopState({ coins }))?.item.starter).toBe(false);
+    }
+  });
+
+  it('moves on to the next cheapest once the first is bought', () => {
+    const first = cheapest as (typeof CATALOG)[number];
+    const after = buy(createShopState({ coins: first.price }), first.kind, first.id);
+    expect(isOwned(after, first.kind, first.id)).toBe(true);
+    const goal = nextGoal(after);
+    expect(goal?.item.id).not.toBe(first.id);
+    expect(goal?.item.price).toBeGreaterThanOrEqual(first.price);
+  });
+
+  it('picks the one the shop lists first when two cost the same', () => {
+    // Walk through buying everything, cheapest first: at every step the goal
+    // must be the first cheapest unowned item in catalog order.
+    let state = createShopState({ coins: 1_000_000 });
+    for (;;) {
+      const goal = nextGoal(state);
+      if (goal === null) break;
+      const unowned = CATALOG.filter((item) => !isOwned(state, item.kind, item.id));
+      const lowest = Math.min(...unowned.map((item) => item.price));
+      expect(goal.item).toEqual(unowned.find((item) => item.price === lowest));
+      state = buy(state, goal.item.kind, goal.item.id);
+    }
+  });
+
+  it('is null once everything has been bought', () => {
+    let state = createShopState({ coins: 1_000_000 });
+    for (const item of CATALOG) state = buy(state, item.kind, item.id);
+    expect(nextGoal(state)).toBeNull();
   });
 });

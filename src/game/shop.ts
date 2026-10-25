@@ -230,3 +230,33 @@ export function itemStatus(state: ShopState, kind: ItemKind, id: string): ItemSt
 export function otherKind(kind: ItemKind): ItemKind {
   return kind === 'animal' ? 'ring' : 'animal';
 }
+
+/** The next thing worth playing for, as the game over screen tells it. */
+export interface NextGoal {
+  item: ShopItem;
+  /** Coins still to collect for it; 0 when it can be bought right now. */
+  missing: number;
+}
+
+/**
+ * The cheapest item the player does not own yet, and how far off it is.
+ *
+ * This is what keeps a player in the loop of "one more run": the end of every
+ * run says how close the next thing is, while the Shop button sits right
+ * underneath. The cheapest unowned item is always the nearest goal — and when
+ * it is already affordable, so is something, which is worth saying too.
+ *
+ * Two items at the same price: the one the shop lists first (animals before
+ * rings), so the answer never flickers between them from run to run.
+ *
+ * @returns null once everything has been bought
+ */
+export function nextGoal(state: ShopState): NextGoal | null {
+  let goal: ShopItem | null = null;
+  for (const item of CATALOG) {
+    if (isOwned(state, item.kind, item.id)) continue;
+    if (goal === null || item.price < goal.price) goal = item;
+  }
+  if (goal === null) return null;
+  return { item: goal, missing: Math.max(0, goal.price - state.coins) };
+}

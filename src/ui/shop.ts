@@ -32,7 +32,7 @@ import {
 } from '../render/rider-preview';
 import { resolveRider } from '../render/sprites';
 import { coinIconDataUrl } from '../render/textures';
-import { fill, STRINGS } from './strings';
+import { fill, itemName, STRINGS } from './strings';
 
 export interface ShopHandlers {
   /**
@@ -68,13 +68,6 @@ function setText(id: string, text: string): void {
 
 function formatNumber(value: number): string {
   return Math.max(0, Math.floor(value)).toLocaleString('en-US');
-}
-
-/** The name to show for an id, falling back to the id itself. */
-function itemName(kind: ItemKind, id: string): string {
-  const names: Readonly<Record<string, string>> =
-    kind === 'animal' ? STRINGS.animals : STRINGS.rings;
-  return names[id] ?? id;
 }
 
 /** One card in the grid. */

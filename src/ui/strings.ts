@@ -3,6 +3,8 @@
  * locale can be added later by swapping this object.
  */
 
+import type { ItemKind } from '../game/shop';
+
 export const STRINGS = {
   title: 'Slide Rush',
   tagline: 'How far can you get?',
@@ -21,6 +23,17 @@ export const STRINGS = {
   paused: 'Paused',
   gameOver: 'Game Over',
   newBest: 'New best!',
+
+  /**
+   * The line under the results on the game over screen: the next thing to
+   * play for, which is what keeps a player going one more run.
+   */
+  goal: {
+    /** Still saving up for it. */
+    missing: '{coins} more to get {name}',
+    /** Already enough: the Shop button is right underneath. */
+    ready: 'You can get {name} now!',
+  },
 
   best: 'BEST',
   score: 'SCORE',
@@ -142,6 +155,13 @@ export const STRINGS = {
 } as const;
 
 export type StringKey = keyof typeof STRINGS;
+
+/** The name to show for a shop item, falling back to the id itself. */
+export function itemName(kind: ItemKind, id: string): string {
+  const names: Readonly<Record<string, string>> =
+    kind === 'animal' ? STRINGS.animals : STRINGS.rings;
+  return names[id] ?? id;
+}
 
 /**
  * Fills the `{name}` slots in one of the strings above.

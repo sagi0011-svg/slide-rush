@@ -29,7 +29,7 @@ import {
 } from './game/flow';
 import { currentStep, skipTutorial } from './game/tutorial';
 import { browserStorage, createSaveStore, shopChanges, shopStateOf } from './game/save';
-import { buy, equip, type ItemKind, type ShopState } from './game/shop';
+import { buy, equip, nextGoal, type ItemKind, type ShopState } from './game/shop';
 import { displayScore } from './game/scoring';
 import { createInputSource } from './input';
 import { createRenderer, type Frame, type Renderer } from './render/scene';
@@ -426,6 +426,9 @@ function boot(): void {
         totalCoins: save.data.totalCoins,
         bestScore: save.data.bestScore,
         isNewBest: score > 0 && score >= save.data.bestScore,
+        // The run's coins are already in the shop state (above), so this is
+        // the distance to the next item counting what was just earned.
+        goal: nextGoal(shop),
       });
       handleEvent('died');
     }
