@@ -10,7 +10,7 @@ An endless runner set on a water-park slide, in the spirit of Subway Surfers. Ri
   <img src="docs/screenshots/shop.jpg" alt="The shop: trying a toilet seat on the duck before buying it" width="240" />
 </p>
 
-**Status:** `v0.2.0` — retro pixel art, 6 animals × 11 rings, and a shop to spend coins in. Released after Sagi played it and approved it; the [QA checklist](docs/QA-v0.2.md) is there for the next round. `v0.1.0` was the MVP, checked on phones (Chrome and Safari).
+**Status:** `v0.2.1` — retro pixel art, 6 animals × 11 rings, and a shop to spend coins in. `v0.2.0` was released after Sagi played it and approved it; `v0.2.1` adds the game-over line that says how close the next shop item is, and the creator credit; the [QA checklist](docs/QA-v0.2.md) is there for the next round. `v0.1.0` was the MVP, checked on phones (Chrome and Safari).
 
 > Hit feedback: the phone vibrates on a trip or a crash where the browser
 > allows it. Safari on iOS has never supported the Vibration API, and every
