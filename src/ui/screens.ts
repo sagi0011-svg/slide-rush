@@ -101,6 +101,7 @@ export function createScreens(handlers: ScreensHandlers): Screens {
   setText('over-again', STRINGS.playAgain);
   setText('over-home', STRINGS.home);
   setText('tutorial-skip', STRINGS.skip);
+  setText('rotate-text', STRINGS.rotate);
 
   for (const [id, event] of BUTTONS) {
     byId(id)?.addEventListener('click', () => {

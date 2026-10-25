@@ -6,6 +6,7 @@ Source of truth for rules and numbers. All numbers are starting values and live 
 - Endless runner on a water-park slide, Subway Surfers style.
 - Goal of the MVP: a polished, portfolio-quality core loop. Built so a shop, more content and real art can be added later.
 - Browser, mobile-first, **portrait**. On desktop the game renders as a portrait frame centered on screen (aspect ~9:16, letterboxed).
+- A phone held sideways (touch screen, landscape, no taller than `LAYOUT.sidewaysMaxHeight`) gets a full-screen "turn your phone upright" notice instead, and a run in progress pauses. A tablet held sideways is tall enough to play as normal.
 - UI language: English.
 
 ## 2. Camera and world

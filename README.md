@@ -1,8 +1,14 @@
 # Slide Rush
 
-An endless runner set on a water-park slide, in the spirit of Subway Surfers. Slide down, switch between 3 lanes, jump over mines, duck under arches, grab coins and power-ups, and see how far you get.
+An endless runner set on a water-park slide, in the spirit of Subway Surfers. Ride an animal in a funny ring, switch between 3 lanes, jump over mines, duck under arches, grab coins and power-ups, and see how far you get. Then spend the coins in the shop on a new animal or ring.
 
-**Status:** `v0.1.0` — the MVP is complete and checked on phones (Chrome and Safari). Placeholder art throughout; the design & art pass comes next.
+<p>
+  <img src="docs/screenshots/title.jpg" alt="Title screen: a duck in a donut ring, under a pixel sunset" width="240" />
+  <img src="docs/screenshots/play.jpg" alt="Sliding past a stack of crates while a magnet pulls in coins" width="240" />
+  <img src="docs/screenshots/shop.jpg" alt="The shop: trying a toilet seat on the duck before buying it" width="240" />
+</p>
+
+**Status:** v0.2 — retro pixel art, 6 animals × 11 rings, and a shop to spend coins in. Built and in phone testing ([QA checklist](docs/QA-v0.2.md)); it gets the `v0.2.0` tag once that passes. `v0.1.0` was the MVP, checked on phones (Chrome and Safari).
 
 > Hit feedback: the phone vibrates on a trip or a crash where the browser
 > allows it. Safari on iOS has never supported the Vibration API, and every
@@ -18,6 +24,8 @@ An endless runner set on a water-park slide, in the spirit of Subway Surfers. Sl
 ## Docs
 
 - [Game spec](docs/SPEC.md) — what the game is, every rule and number
+- [Art, riders and shop](docs/ART-AND-SHOP.md) — the v0.2 plan: the pixel look, the animals and rings, prices
+- [v0.2 phone QA checklist](docs/QA-v0.2.md) — what to check on a phone before tagging `v0.2.0` (Hebrew)
 - [Milestones](docs/MILESTONES.md) — build order, with a ready prompt per milestone
 - [CLAUDE.md](CLAUDE.md) — working rules for Claude Code in this repo
 - [Assets](ASSETS.md) — where every sound and visual comes from, and its licence
@@ -30,6 +38,7 @@ An endless runner set on a water-park slide, in the spirit of Subway Surfers. Sl
 | Jump | Swipe up | ↑ / W / Space |
 | Slide (duck) | Swipe down | ↓ / S |
 | Pause | Pause button | Esc / P |
+| Leave the shop | Back button, or the phone's back gesture | Esc |
 
 ## Development
 
@@ -49,6 +58,7 @@ npm run preview          # serve the production build locally
 |---|---|
 | `?debug=1` | Debug panel: fps and the slowest frame, draw calls, resolution, speed, tier, seed and more, plus sliders and switches |
 | `?seed=123` | Forces the run seed, so a run can be reproduced exactly |
+| `?debug=1&gallery=1` | Rider gallery: every animal in every ring, in every pose, instead of the game |
 | `1` `2` `3` | With `?debug=1`: grants shield, magnet and speed boost |
 | `I` | With `?debug=1`: invincibility on/off (obstacles are passed straight through) |
 | `H` | With `?debug=1`: hitbox outlines on/off (green player, red deadly, yellow trips) |

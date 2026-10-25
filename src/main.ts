@@ -7,7 +7,7 @@
  */
 
 import './ui/styles.css';
-import { SIM } from './config';
+import { LAYOUT, SIM } from './config';
 import { createFixedStepper } from './game/loop';
 import {
   applyAction,
@@ -295,6 +295,19 @@ function boot(): void {
   screens.setEffectsOff(save.data.effectsOff);
   audio.setPhase(flow.phase);
   state.paused = true;
+
+  // A phone on its side gets the "turn it upright" notice, and a run pauses
+  // rather than carrying on behind it (SPEC 1).
+  const sideways = window.matchMedia(
+    `(orientation: landscape) and (max-height: ${LAYOUT.sidewaysMaxHeight}px) and (pointer: coarse)`,
+  );
+  const rotateNotice = requireElement('rotate');
+  const onSideways = (): void => {
+    rotateNotice.hidden = !sideways.matches;
+    if (sideways.matches) handleEvent('lostFocus');
+  };
+  sideways.addEventListener('change', onSideways);
+  onSideways();
 
   const onResize = (): void => renderer.resize();
   window.addEventListener('resize', onResize);

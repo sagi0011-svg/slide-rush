@@ -25,6 +25,7 @@ import { createHitboxLayer, type HitboxLayer } from './hitbox-view';
 import { createPixelPass, type PixelPass } from './pixel-pass';
 import { createSky, type Sky } from './sky';
 import { createScenery, type Scenery } from './scenery';
+import { createGround, type Ground } from './ground';
 import { createSplash, type Splash } from './splash';
 import { pixelCount } from './retro';
 import type { HitboxList } from '../game/hitboxes';
@@ -120,6 +121,7 @@ export function createRenderer(canvas: HTMLCanvasElement, riderPair: RiderPair):
 
   const texture = createSlideTexture();
   const track: Track = createTrack(scene, texture);
+  const ground: Ground = createGround(scene);
   const scenery: Scenery = createScenery(scene);
   const obstacleLayer: ObstacleLayer = createObstacleLayer(scene);
   const coinLayer: CoinLayer = createCoinLayer(scene);
@@ -178,6 +180,7 @@ export function createRenderer(canvas: HTMLCanvasElement, riderPair: RiderPair):
   return {
     draw(frame: Frame) {
       track.update(frame.distance);
+      ground.update(frame.distance);
       scenery.update(frame.distance);
       obstacleLayer.update(frame.obstacles, frame.distance);
       coinLayer.update(frame.coins, frame.distance, frame.elapsed);
@@ -286,6 +289,7 @@ export function createRenderer(canvas: HTMLCanvasElement, riderPair: RiderPair):
     rider,
     dispose() {
       track.dispose();
+      ground.dispose();
       scenery.dispose();
       obstacleLayer.dispose();
       coinLayer.dispose();

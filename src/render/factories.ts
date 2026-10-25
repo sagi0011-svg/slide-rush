@@ -38,9 +38,11 @@ import { fattenGeometry, mergeColoredParts, type GeometryPart } from './geometry
 import { addOutline, outlineMaterial, outlineThickness, toonMaterial } from './materials';
 import type { SceneryKind } from './scenery-layout';
 import { RIDER_LAYOUT } from './rider-pose';
+import { GROUND_AHEAD, GROUND_BEHIND } from './ground-layout';
 import { EFFECT_IN_FRONT } from './sprites';
 import {
   createCoinStripTexture,
+  createGroundTexture,
   createPickupIconTexture,
   createRiderAtlasTexture,
 } from './textures';
@@ -73,6 +75,28 @@ export function createTrackSegment(texture: Texture): Mesh<PlaneGeometry, MeshTo
   const mesh = new Mesh(geometry, material);
   mesh.matrixAutoUpdate = true;
   return mesh;
+}
+
+/**
+ * The grass under the slide: a plane cut into rows across its length, which
+ * src/render/ground.ts bends to follow the slide every frame (§1).
+ *
+ * It sits a little below the slide floor, and the polygon offset pushes it a
+ * touch further back in the depth test as well, so where the two nearly touch
+ * the slide always wins rather than flickering against the grass.
+ */
+export function createGroundMesh(): Mesh<PlaneGeometry, MeshToonMaterial> {
+  const geometry = new PlaneGeometry(
+    RETRO.ground.width,
+    GROUND_AHEAD + GROUND_BEHIND,
+    1,
+    RETRO.ground.rows,
+  ).rotateX(-Math.PI / 2);
+  const material = toonMaterial({ map: createGroundTexture() });
+  material.polygonOffset = true;
+  material.polygonOffsetFactor = 1;
+  material.polygonOffsetUnits = 1;
+  return new Mesh(geometry, material);
 }
 
 /** The rider's layers, back to front, and what they share. */

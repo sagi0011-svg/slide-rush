@@ -8,6 +8,8 @@ export const STRINGS = {
   tagline: 'How far can you get?',
   loading: 'Loading…',
   webglUnsupported: 'This browser cannot run 3D graphics (WebGL). Try Chrome, Safari or Firefox.',
+  /** Shown over everything while a phone is held sideways. */
+  rotate: 'Turn your phone upright to play',
 
   play: 'Play',
   playAgain: 'Play Again',

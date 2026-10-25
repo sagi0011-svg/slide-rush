@@ -30,6 +30,7 @@ Reference: the owner's other game "ספלאש" (screenshot in chat). Pixel art, 
 - Dark outlines (`outline` colour) on obstacles, coins, pickups and scenery (inverted-hull or edge pass — pick the cheaper one on mobile and say which).
 - Sky: dithered 2-colour gradient + big pixel sun + 2 layers of purple hills (parallax, never move closer).
 - Scenery on both sides of the slide, pooled and recycled like track segments: slide towers with coloured spiral slides (red/orange and blue/sky-blue like the reference), round pixel trees, palms, small huts.
+- Ground (M12): one strip of dithered pixel grass under the slide and the scenery, bent to follow the slide and faded into the sunset by the fog (`RETRO.ground`). Before it, the props stood on the sky.
 - Slide surface: pixel water with light stripes that scroll, sand-coloured rims with outline.
 - Obstacles keep their shapes and hitboxes, recoloured: mine = red buoy-mine with spikes, high obstacle = blue bar/flag, full blocker = stacked crates or a closed gate, soft obstacle = yellow inflatable.
 - Coins: 8-frame spinning pixel coin. Power-ups: pixel icons on a floating ring.

@@ -160,6 +160,19 @@ export const RENDER = {
   trialSpeedup: 0.85,
 } as const;
 
+/**
+ * The game is portrait only (SPEC 1). A phone turned on its side squeezes the
+ * 9:16 frame into a thin strip down the middle, too short for the title and
+ * the shop, so it gets a "turn it upright" notice instead, and a run pauses.
+ */
+export const LAYOUT = {
+  /**
+   * A touch screen held sideways and no taller than this, in CSS pixels, is a
+   * phone on its side. A tablet held sideways is taller, and has room to play.
+   */
+  sidewaysMaxHeight: 500,
+} as const;
+
 /** Camera and presentation (SPEC 2). */
 export const CAMERA = {
   /** Portrait aspect ratio the playfield is letterboxed to (width / height). */
@@ -681,6 +694,26 @@ export const RETRO = {
     recycleBehind: 25,
     /** Share of slots left empty, so the sides never look like a fence, 0..1. */
     emptyShare: 0.26,
+  },
+  /**
+   * The grass the slide and the scenery stand on. Without it the props stood
+   * on the sky, which read as the slide floating in a pink haze. One strip,
+   * one draw call, bent to follow the slide and moved with the player; the
+   * fog fades its far edge into the bottom of the sky.
+   */
+  ground: {
+    /** How wide the strip is, in units: wide enough to reach past both edges of the view. */
+    width: 120,
+    /**
+     * How many rows the strip is cut into along its length. Enough that the
+     * straight line between two rows never rises far from the slide's curve,
+     * which `drop` has to cover (guarded by a test).
+     */
+    rows: 28,
+    /** How far below the slide floor the grass sits, in units, so it never shows through. */
+    drop: 0.1,
+    /** How long the painted grass pattern is before it repeats, in units. */
+    patternLength: 6,
   },
   /** Square pixel splashes thrown up when the player lands (section 1). */
   splash: {

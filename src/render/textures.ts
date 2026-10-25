@@ -308,6 +308,34 @@ export function createSlideTexture(): CanvasTexture {
 }
 
 /**
+ * The grass under the slide and the scenery (§1): light green with a few broad
+ * tufts of darker green, so it reads as ground rather than a flat green wall.
+ *
+ * Every mark is many texels wide on purpose. Single-pixel detail on a surface
+ * rushing at the camera flickers from frame to frame, which is exactly what
+ * the slide water's fine dither was found to do; broad, calm shapes do not.
+ */
+export function createGroundTexture(): CanvasTexture {
+  const size = Math.round(RETRO.ground.patternLength * RETRO.texturePixelsPerUnit);
+  const ctx = pixelCanvas(size, size);
+  ctx.fillStyle = colorToCss(PALETTE.forestLight);
+  ctx.fillRect(0, 0, size, size);
+  // Two tufts per pattern, staggered, each a whole unit across.
+  const tuft = RETRO.texturePixelsPerUnit;
+  ctx.fillStyle = colorToCss(PALETTE.forest);
+  for (const [x, y] of [
+    [0.15, 0.2],
+    [0.6, 0.65],
+  ] as const) {
+    ctx.fillRect(Math.round(x * size), Math.round(y * size), tuft, Math.round(tuft * 0.75));
+  }
+  const texture = toTexture(ctx);
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = RepeatWrapping;
+  return texture;
+}
+
+/**
  * The spinning coin, as one strip of frames (§1).
  *
  * Every coin on the track shows the same frame at the same moment — they
