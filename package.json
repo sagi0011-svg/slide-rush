@@ -1,7 +1,7 @@
 {
   "name": "slide-rush",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Endless water-slide runner for the browser",
   "scripts": {
