@@ -580,8 +580,12 @@ export function createPickupIconTexture(type: PowerUpType): CanvasTexture {
  */
 export function paintRiderAtlas(): CanvasRenderingContext2D {
   const ctx = pixelCanvas(ATLAS_SIZE.width, ATLAS_SIZE.height);
+  // A look may paint some sprites in other colours (docs/VISUAL-STYLES.md).
+  const recolor = theme().spriteRecolor;
   for (const entry of atlasEntries()) {
-    drawPixelMap(ctx, entry.rows, SPRITE_LEGEND, entry.cell.x, entry.cell.y);
+    const changes = recolor[entry.id];
+    const legend = changes === undefined ? SPRITE_LEGEND : { ...SPRITE_LEGEND, ...changes };
+    drawPixelMap(ctx, entry.rows, legend, entry.cell.x, entry.cell.y);
   }
   return ctx;
 }

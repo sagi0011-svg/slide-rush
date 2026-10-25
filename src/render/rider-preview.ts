@@ -16,7 +16,7 @@
  */
 
 import { RIDER } from '../config';
-import { palette } from './theme';
+import { palette, visualStyle } from './theme';
 import type { PowerUpType } from '../game/powerups';
 import { effectFrame, poseLayout, RIDER_LAYOUT, ringSpinFrame, type RiderPose } from './rider-pose';
 import {
@@ -87,7 +87,9 @@ export interface RiderPainter {
 }
 
 export function createRiderPainter(): RiderPainter {
-  const atlas = paintRiderAtlas().canvas;
+  // Painted again if the look changes, since a look can recolour a sprite.
+  let atlasStyle = visualStyle();
+  let atlas = paintRiderAtlas().canvas;
 
   /** Copies one atlas cell onto a picture, mirrored if asked. */
   const blit = (
@@ -136,6 +138,10 @@ export function createRiderPainter(): RiderPainter {
     },
 
     draw(ctx, pair, options = {}) {
+      if (atlasStyle !== visualStyle()) {
+        atlasStyle = visualStyle();
+        atlas = paintRiderAtlas().canvas;
+      }
       const pose = options.pose ?? 'idle';
       const clock = options.clock ?? 0;
       const effect = options.effect ?? null;

@@ -94,6 +94,8 @@ export function effectCell(type: PowerUpType, frame: number): Cell {
 export interface AtlasEntry {
   /** What the frame is, for test messages. */
   name: string;
+  /** Whose frame it is: an animal, ring or power-up id. */
+  id: string;
   cell: Cell;
   rows: readonly string[];
 }
@@ -105,6 +107,7 @@ export function atlasEntries(): AtlasEntry[] {
     for (const frame of ANIMAL_FRAMES) {
       entries.push({
         name: `${id}/${frame}`,
+        id,
         cell: animalCell(id, frame),
         rows: animalRows(id, frame),
       });
@@ -115,6 +118,7 @@ export function atlasEntries(): AtlasEntry[] {
       for (const half of ['back', 'front'] as const) {
         entries.push({
           name: `${id}/${spin}/${half}`,
+          id,
           cell: ringCell(id, spin, half),
           rows: ringRows(id, spin, half),
         });
@@ -125,6 +129,7 @@ export function atlasEntries(): AtlasEntry[] {
     for (let frame = 0; frame < RIDER.effectFrames; frame += 1) {
       entries.push({
         name: `${type}/${frame}`,
+        id: type,
         cell: effectCell(type, frame),
         rows: effectRows(type, frame),
       });

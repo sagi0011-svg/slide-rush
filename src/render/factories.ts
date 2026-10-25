@@ -230,8 +230,40 @@ export function createLights(): Object3D[] {
 
 // --- Obstacles ---------------------------------------------------------------
 
-/** The red buoy-mine: a spiked ball with a band round it (§1). */
+/** The low mine, in whichever shape the look gives it (docs/VISUAL-STYLES.md). */
 function mineParts(): GeometryPart[] {
+  return theme().mine === 'bomb' ? bombParts() : buoyMineParts();
+}
+
+/**
+ * The dark round bomb: a ball with a cap on top and a red light on the cap,
+ * the same size as the buoy-mine, so it fills the same hitbox.
+ */
+function bombParts(): GeometryPart[] {
+  const radius = OBSTACLES.size.lowMine.w / 2;
+  return [
+    { geometry: new IcosahedronGeometry(radius, 1), color: palette().lowMine },
+    // A glint, so the ball reads as round even in flat colour.
+    {
+      geometry: new IcosahedronGeometry(radius * 0.22, 0),
+      matrix: at(-radius * 0.45, radius * 0.45, radius * 0.62),
+      color: palette().cream,
+    },
+    {
+      geometry: new CylinderGeometry(radius * 0.32, radius * 0.38, radius * 0.3, 8),
+      matrix: at(0, radius * 0.98, 0),
+      color: palette().blue,
+    },
+    {
+      geometry: new IcosahedronGeometry(radius * 0.2, 0),
+      matrix: at(0, radius * 1.22, 0),
+      color: palette().red,
+    },
+  ];
+}
+
+/** The red buoy-mine: a spiked ball with a band round it (§1). */
+function buoyMineParts(): GeometryPart[] {
   const size = OBSTACLES.size.lowMine;
   const radius = size.w / 2;
   const parts: GeometryPart[] = [

@@ -996,15 +996,19 @@ const RETRO_SEVEN = {
 const PIXEL_PALETTE: Palette = {
   ...PALETTE,
   outline: RETRO_SEVEN.outline,
-  skyTop: RETRO_SEVEN.deepWater,
-  skyBottom: RETRO_SEVEN.panel,
+  // A night sky over the sea: the far hills stand out against it in the panel
+  // blue, the near ones in deep water in front of them.
+  skyTop: RETRO_SEVEN.outline,
+  skyBottom: RETRO_SEVEN.deepWater,
   sun: RETRO_SEVEN.coin,
   sunGlow: RETRO_SEVEN.walls,
-  mountain: RETRO_SEVEN.deepWater,
-  mountainDark: RETRO_SEVEN.outline,
-  forest: RETRO_SEVEN.panel,
-  forestLight: RETRO_SEVEN.aqua,
-  forestDark: RETRO_SEVEN.deepWater,
+  mountain: RETRO_SEVEN.panel,
+  mountainDark: RETRO_SEVEN.deepWater,
+  // The ground is the sea itself, so the aqua slide stands out on it; the
+  // trees are aqua on top.
+  forest: RETRO_SEVEN.deepWater,
+  forestLight: RETRO_SEVEN.panel,
+  forestDark: RETRO_SEVEN.outline,
   water: RETRO_SEVEN.aqua,
   waterLight: RETRO_SEVEN.foam,
   waterDeep: RETRO_SEVEN.panel,
@@ -1017,10 +1021,10 @@ const PIXEL_PALETTE: Palette = {
   skyBlue: RETRO_SEVEN.aqua,
   cream: RETRO_SEVEN.foam,
   sky: RETRO_SEVEN.deepWater,
-  fog: RETRO_SEVEN.panel,
+  fog: RETRO_SEVEN.deepWater,
   slide: RETRO_SEVEN.aqua,
   player: RETRO_SEVEN.coin,
-  lowMine: RETRO_SEVEN.outline,
+  lowMine: RETRO_SEVEN.deepWater,
   highObstacle: RETRO_SEVEN.walls,
   fullBlocker: RETRO_SEVEN.walls,
   softObstacle: RETRO_SEVEN.coin,
@@ -1059,6 +1063,16 @@ export interface Theme {
   readonly antialias: boolean;
   /** The sky as two colours dithered together, rather than a smooth fade. */
   readonly skyDither: boolean;
+  /**
+   * What the low mine looks like: the red spiked buoy-mine, or a dark round
+   * bomb with a red light. Its hitbox is the same either way (SPEC 7).
+   */
+  readonly mine: 'buoy' | 'bomb';
+  /**
+   * Sprite colours this look changes, by sprite id and then by the letter in
+   * src/render/sprites/legend.ts. Empty for most looks.
+   */
+  readonly spriteRecolor: Readonly<Record<string, Readonly<Record<string, number>>>>;
 }
 
 /** The three looks (docs/VISUAL-STYLES.md §1). */
@@ -1074,6 +1088,8 @@ export const THEMES: Readonly<Record<VisualStyle, Theme>> = {
     smoothTextures: false,
     antialias: false,
     skyDither: true,
+    mine: 'buoy',
+    spriteRecolor: {},
   },
   classic: {
     palette: CLASSIC_PALETTE,
@@ -1085,6 +1101,8 @@ export const THEMES: Readonly<Record<VisualStyle, Theme>> = {
     smoothTextures: true,
     antialias: true,
     skyDither: false,
+    mine: 'buoy',
+    spriteRecolor: {},
   },
   /** Chunkier than Sunset: one game pixel is 5 screen pixels on a phone. */
   pixel: {
@@ -1097,5 +1115,11 @@ export const THEMES: Readonly<Record<VisualStyle, Theme>> = {
     smoothTextures: false,
     antialias: false,
     skyDither: true,
+    mine: 'bomb',
+    // The starter tube becomes a red-and-white lifebuoy: its blue stripes
+    // (b, with s lit and U shaded) are painted red instead.
+    spriteRecolor: {
+      tube: { b: RETRO_SEVEN.walls, s: 0xff9a80, U: 0xb8432c },
+    },
   },
 };
