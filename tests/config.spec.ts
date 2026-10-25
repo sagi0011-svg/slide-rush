@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 // Vite hands a ?raw import back as a plain string (typed by vite/client).
 import css from '../src/ui/styles.css?raw';
+import pixelCss from '../src/ui/style-pixel.css?raw';
 import {
   AUDIO,
   CAMERA,
@@ -10,6 +11,7 @@ import {
   LANES,
   OBSTACLES,
   PALETTE,
+  THEMES,
   PLAYER,
   POWERUPS,
   SCORING,
@@ -170,6 +172,30 @@ describe('sound settings (SPEC 12)', () => {
  * CSS cannot import from TypeScript, so src/ui/styles.css repeats them as
  * custom properties. These tests are what stops the two copies drifting apart.
  */
+/**
+ * The colour custom properties of one block of a stylesheet, read a line at a
+ * time from the line that opens it to the first closing brace: simpler to be
+ * sure of than a regex, and the failure says which one is wrong.
+ */
+function colorProperties(sheet: string, opening: string): Map<string, string> {
+  const declared = new Map<string, string>();
+  const lines = sheet.split('\n');
+  const start = lines.findIndex((line) => line.trim() === opening);
+  expect(start, opening).toBeGreaterThanOrEqual(0);
+  for (const line of lines.slice(start + 1)) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('}')) break;
+    if (!trimmed.startsWith('--')) continue;
+    const colon = trimmed.indexOf(':');
+    if (colon < 0) continue;
+    const name = trimmed.slice(0, colon).trim();
+    let value = trimmed.slice(colon + 1).trim();
+    if (value.endsWith(';')) value = value.slice(0, -1).trim();
+    if (value.startsWith('#')) declared.set(name, value.slice(1).toLowerCase());
+  }
+  return declared;
+}
+
 describe('the retro palette', () => {
   const required = [
     'outline',
@@ -232,23 +258,18 @@ describe('the retro palette', () => {
       '--letterbox': 'letterbox',
     };
 
-    // Read the custom properties off the stylesheet a line at a time: simpler
-    // to be sure of than a regex, and the failure says which one is wrong.
-    const declared = new Map<string, string>();
-    for (const line of css.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith('--')) continue;
-      const colon = trimmed.indexOf(':');
-      if (colon < 0) continue;
-      const name = trimmed.slice(0, colon).trim();
-      let value = trimmed.slice(colon + 1).trim();
-      if (value.endsWith(';')) value = value.slice(0, -1).trim();
-      if (value.startsWith('#')) declared.set(name, value.slice(1).toLowerCase());
-    }
-
+    const declared = colorProperties(css, ':root {');
     for (const [property, key] of Object.entries(shared)) {
       const expected = PALETTE[key].toString(16).padStart(6, '0');
       expect(declared.get(property), `styles.css ${property}`).toBe(expected);
+    }
+
+    // The Retro Pixel UI repeats its own palette the same way
+    // (docs/VISUAL-STYLES.md section 4).
+    const retro = colorProperties(pixelCss, ":root[data-style='pixel'] {");
+    for (const [property, key] of Object.entries(shared)) {
+      const expected = THEMES.pixel.palette[key].toString(16).padStart(6, '0');
+      expect(retro.get(property), `style-pixel.css ${property}`).toBe(expected);
     }
   });
 });

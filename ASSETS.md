@@ -4,7 +4,7 @@ Every sound, image, model and font in Slide Rush is listed here with where it ca
 
 ## Short version
 
-The game ships with **no third-party asset files at all.** Every sound is generated in the browser by code in this repository, and every visual — including every pixel texture and sprite — is drawn in code from the palette in `src/config.ts` (CLAUDE.md rule 8). Nothing is downloaded except one webfont, **Pixelify Sans**, which is under the SIL Open Font Licence and listed under Fonts below.
+The game ships with **no third-party asset files at all.** Every sound is generated in the browser by code in this repository, and every visual — including every pixel texture and sprite — is drawn in code from the palette in `src/config.ts` (CLAUDE.md rule 8). Nothing is downloaded except three webfonts — **Pixelify Sans**, and **Press Start 2P** with **VT323** for the Retro Pixel look (M13) — all under the SIL Open Font Licence and listed under Fonts below.
 
 The generated sounds are original work for this project and are dedicated to the public domain under **[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)** — anyone may use them for anything, no credit needed.
 
@@ -42,12 +42,14 @@ The chord progression C – G – Am – F is one of the most common in popular 
 | Font | What it is used for | Source | Licence |
 |---|---|---|---|
 | Pixelify Sans | The whole pixel UI: title, buttons, HUD, screens (M9) | [Google Fonts](https://fonts.google.com/specimen/Pixelify+Sans), fetched by the `<link>` in `index.html` | [SIL Open Font Licence 1.1](https://openfontlicense.org/) |
+| Press Start 2P | Retro Pixel look: headings, numbers, buttons (M13) | [Google Fonts](https://fonts.google.com/specimen/Press+Start+2P), same `<link>` | [SIL Open Font Licence 1.1](https://openfontlicense.org/) |
+| VT323 | Retro Pixel look: body text (M13) | [Google Fonts](https://fonts.google.com/specimen/VT323), same `<link>` | [SIL Open Font Licence 1.1](https://openfontlicense.org/) |
 
-No font file is committed to this repository; it is fetched from Google Fonts
-at run time. The OFL allows that use freely and asks for no credit in the game
+No font file is committed to this repository; they are fetched from Google
+Fonts at run time. The OFL allows that use freely and asks for no credit in the game
 itself, but it is recorded here anyway.
 
-The stylesheet asks for it with `display=swap` and falls back to the device's
+The stylesheet asks for them with `display=swap` and falls back to the device's
 own monospace font, so the game still opens and plays normally on a phone with
 no connection, or if Google Fonts is blocked — it just looks less pixelly.
 

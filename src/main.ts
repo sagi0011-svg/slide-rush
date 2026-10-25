@@ -7,6 +7,7 @@
  */
 
 import './ui/styles.css';
+import './ui/style-pixel.css';
 import { LAYOUT, SIM, type VisualStyle } from './config';
 import { createFixedStepper } from './game/loop';
 import {

@@ -1,0 +1,234 @@
+/*
+ * The Retro Pixel UI (docs/VISUAL-STYLES.md §4).
+ *
+ * Everything here is scoped to <html data-style="pixel">, which main.ts sets
+ * from the save, so the other two looks keep the v0.2 UI exactly as it is in
+ * styles.css. This file only overrides: the layout, the sizes of things to
+ * tap and every rule about what shows when all stay in styles.css.
+ *
+ * The look: "Press Start 2P" for headings, numbers and buttons, "VT323" for
+ * body text, square corners, a 4px solid outline round everything, a hard
+ * drop shadow under it, and no gradients. The colours are the Retro Pixel
+ * palette from src/config.ts (THEMES.pixel); tests/config.spec.ts checks the
+ * copies below have not drifted from it.
+ */
+
+:root[data-style='pixel'] {
+  /* The palette (src/config.ts THEMES.pixel). */
+  --outline: #071e33;
+  --cream: #bff7ff;
+  --sand: #ff6b4a;
+  --slide-edge: #ff6b4a;
+  --yellow: #ffd23f;
+  --orange: #ff6b4a;
+  --red: #ff6b4a;
+  --blue: #15558c;
+  --sky-blue: #3fd0e0;
+  --water: #3fd0e0;
+  --mountain-dark: #0e3a63;
+  --letterbox: #071e33;
+
+  --pixel-font: 'VT323', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --display-font: 'Press Start 2P', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  /* The hard shadow under every box: straight down, no blur. */
+  --drop: 0 5px 0 var(--outline);
+  --drop-pressed: 0 1px 0 var(--outline);
+}
+
+/* The display face: headings, numbers and anything you press. */
+[data-style='pixel'] .screen h1,
+[data-style='pixel'] .screen h2,
+[data-style='pixel'] .settings-heading,
+[data-style='pixel'] .screen button,
+[data-style='pixel'] .shop-tab,
+[data-style='pixel'] #pause-button,
+[data-style='pixel'] #hud,
+[data-style='pixel'] .powerup,
+[data-style='pixel'] .stat,
+[data-style='pixel'] .results dd,
+[data-style='pixel'] .coin-balance,
+[data-style='pixel'] .badge-new,
+[data-style='pixel'] #shop-name,
+[data-style='pixel'] #shop-price,
+[data-style='pixel'] .shop-card-name,
+[data-style='pixel'] .shop-card-price,
+[data-style='pixel'] .style-tag {
+  font-family: var(--display-font);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* Press Start 2P is wide; everything set in it comes down a size or two. */
+[data-style='pixel'] .screen h1 {
+  font-size: 26px;
+  line-height: 1.3;
+  text-shadow:
+    var(--text-outline),
+    0 6px 0 var(--outline);
+}
+
+[data-style='pixel'] .screen h2 {
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+[data-style='pixel'] .settings-heading {
+  font-size: 11px;
+}
+
+[data-style='pixel'] .score {
+  font-size: 18px;
+}
+
+[data-style='pixel'] .best,
+[data-style='pixel'] .multiplier,
+[data-style='pixel'] .coins {
+  font-size: 10px;
+}
+
+[data-style='pixel'] .powerup {
+  font-size: 8px;
+}
+
+[data-style='pixel'] .stat,
+[data-style='pixel'] .coin-balance,
+[data-style='pixel'] .badge-new {
+  font-size: 11px;
+}
+
+[data-style='pixel'] .results dd {
+  font-size: 14px;
+}
+
+[data-style='pixel'] #shop-name {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+[data-style='pixel'] #shop-price,
+[data-style='pixel'] .shop-card-name,
+[data-style='pixel'] .shop-card-price {
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+/* The body face, a size up: VT323 is small for its size. */
+[data-style='pixel'] body,
+[data-style='pixel'] .screen .muted,
+[data-style='pixel'] .screen .credit,
+[data-style='pixel'] .results dt,
+[data-style='pixel'] .settings-row {
+  font-family: var(--pixel-font);
+}
+
+[data-style='pixel'] .screen .muted,
+[data-style='pixel'] .settings-row {
+  font-size: 22px;
+}
+
+[data-style='pixel'] .screen .goal,
+[data-style='pixel'] #tutorial-text,
+[data-style='pixel'] #shop-confirm-text {
+  font-family: var(--pixel-font);
+  font-size: 22px;
+  font-weight: 400;
+}
+
+[data-style='pixel'] .screen .credit,
+[data-style='pixel'] .results dt {
+  font-size: 18px;
+}
+
+/* The screens sit on the deep water, not the sunset's purple. */
+[data-style='pixel'] .screen {
+  background: rgba(14, 58, 99, 0.82);
+}
+
+[data-style='pixel'] #screen-shop,
+[data-style='pixel'] #screen-settings {
+  background: rgba(14, 58, 99, 0.94);
+}
+
+/* Buttons: a 4px outline and a hard shadow that they press down onto. */
+[data-style='pixel'] .screen button,
+[data-style='pixel'] .shop-tab,
+[data-style='pixel'] #pause-button {
+  border: 4px solid var(--outline);
+  border-radius: 0;
+  box-shadow: var(--drop);
+  background-image: none;
+}
+
+[data-style='pixel'] .screen button:active,
+[data-style='pixel'] .shop-tab:active,
+[data-style='pixel'] #pause-button:active {
+  transform: translateY(4px);
+  box-shadow: var(--drop-pressed);
+}
+
+[data-style='pixel'] .screen button.primary {
+  font-size: 15px;
+  padding: 16px 16px 14px;
+}
+
+[data-style='pixel'] .screen button.ghost {
+  font-size: 11px;
+  padding: 12px 14px 10px;
+  color: var(--outline);
+}
+
+[data-style='pixel'] .shop-tab {
+  font-size: 11px;
+}
+
+[data-style='pixel'] .shop-back {
+  font-size: 10px;
+}
+
+[data-style='pixel'] .screen button.toggle {
+  font-size: 11px;
+}
+
+/* The two kinds of card. */
+[data-style='pixel'] .screen button.style-card,
+[data-style='pixel'] .shop-card {
+  border: 4px solid var(--outline);
+  box-shadow: var(--drop);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+[data-style='pixel'] .shop-card.on,
+[data-style='pixel'] .screen button.style-card[aria-pressed='true'] {
+  box-shadow:
+    0 0 0 4px var(--yellow),
+    var(--drop);
+}
+
+/* The panels: the same outline and shadow as the buttons. */
+[data-style='pixel'] #tutorial-text,
+[data-style='pixel'] .shop-detail,
+[data-style='pixel'] .style-tag,
+[data-style='pixel'] .badge-new {
+  border: 4px solid var(--outline);
+  box-shadow: var(--drop);
+}
+
+[data-style='pixel'] .style-tag {
+  top: -12px;
+  padding: 2px 4px;
+  font-size: 7px;
+}
+
+[data-style='pixel'] .shop-detail {
+  background: rgba(21, 85, 140, 0.6);
+}
+
+[data-style='pixel'] .style-preview {
+  border-width: 3px;
+}
+
+/* Room for the hard shadows between the rows. */
+[data-style='pixel'] .settings-body {
+  gap: 12px;
+}
