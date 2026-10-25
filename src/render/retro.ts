@@ -9,17 +9,30 @@
 
 import { RETRO } from '../config';
 
+/** How big a game pixel is on a phone, and on a big screen. */
+export interface PixelScales {
+  pixelScale: number;
+  largePixelScale: number;
+}
+
+/** The v0.2 game pixel (docs/ART-AND-SHOP.md §1). */
+const SUNSET_SCALES: PixelScales = {
+  pixelScale: RETRO.pixelScale,
+  largePixelScale: RETRO.largePixelScale,
+};
+
 /**
  * How many screen pixels wide one game pixel is.
  *
  * A phone gets the chunky 4; a big screen gets 3, because at 4 a desktop
- * window reads as a mosaic rather than as pixel art.
+ * window reads as a mosaic rather than as pixel art. A look can ask for other
+ * sizes (docs/VISUAL-STYLES.md).
  *
  * @param bufferWidth the width of the drawing buffer, in screen pixels
  */
-export function choosePixelScale(bufferWidth: number): number {
-  if (!(bufferWidth > 0)) return RETRO.pixelScale;
-  return bufferWidth >= RETRO.largeScreenWidth ? RETRO.largePixelScale : RETRO.pixelScale;
+export function choosePixelScale(bufferWidth: number, scales = SUNSET_SCALES): number {
+  if (!(bufferWidth > 0)) return scales.pixelScale;
+  return bufferWidth >= RETRO.largeScreenWidth ? scales.largePixelScale : scales.pixelScale;
 }
 
 /** The size of the low-resolution target, in game pixels. */
@@ -41,7 +54,10 @@ export interface PixelGrid {
   /** The drawing buffer: the canvas at the screen's own resolution. */
   bufferWidth: number;
   bufferHeight: number;
-  /** How many device pixels wide one game pixel is. Always a whole number. */
+  /**
+   * How many device pixels wide one game pixel is. Always a whole number for
+   * a pixel look; any number for a smooth one (`smoothGrid`).
+   */
   scale: number;
   /** The low-resolution target the scene is drawn into, in game pixels. */
   target: TargetSize;
@@ -75,12 +91,14 @@ export interface PixelGrid {
  * @param qualityRatio the resolution the frame-rate watch currently allows
  *   (src/render/quality.ts). When it steps down, game pixels get bigger, so
  *   there are fewer of them to fill — the same job it always had.
+ * @param scales how big a game pixel is; the v0.2 sizes unless a look says
  */
 export function pixelGrid(
   cssWidth: number,
   cssHeight: number,
   devicePixelRatio: number,
   qualityRatio: number,
+  scales: PixelScales = SUNSET_SCALES,
 ): PixelGrid {
   const dpr = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
   const quality =
@@ -91,7 +109,7 @@ export function pixelGrid(
   // The game pixel M9 chose, measured in the old capped buffer's pixels, then
   // turned into real device pixels and rounded to a whole number. That keeps
   // the look within one device pixel of what it was, and makes it exact.
-  const chosen = choosePixelScale(cssWidth * quality);
+  const chosen = choosePixelScale(cssWidth * quality, scales);
   const scale = Math.max(1, Math.round((chosen * dpr) / quality));
 
   const target = {
@@ -111,6 +129,38 @@ export function pixelGrid(
       width,
       height,
     },
+  };
+}
+
+/**
+ * The layout for a smooth look (Classic 3D, docs/VISUAL-STYLES.md §5): the
+ * scene is drawn at the resolution the frame-rate watch allows, never more
+ * than the screen's own, and smoothed up to fill the whole canvas. No border:
+ * nothing here has to land on whole pixels.
+ *
+ * Takes the same arguments as `pixelGrid`.
+ */
+export function smoothGrid(
+  cssWidth: number,
+  cssHeight: number,
+  devicePixelRatio: number,
+  qualityRatio: number,
+): PixelGrid {
+  const dpr = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
+  const quality =
+    Number.isFinite(qualityRatio) && qualityRatio > 0 ? Math.min(qualityRatio, dpr) : dpr;
+  const bufferWidth = Math.max(1, Math.round(cssWidth * dpr));
+  const bufferHeight = Math.max(1, Math.round(cssHeight * dpr));
+  const target = {
+    width: Math.max(1, Math.round(cssWidth * quality)),
+    height: Math.max(1, Math.round(cssHeight * quality)),
+  };
+  return {
+    bufferWidth,
+    bufferHeight,
+    scale: bufferWidth / target.width,
+    target,
+    viewport: { x: 0, y: 0, width: bufferWidth, height: bufferHeight },
   };
 }
 

@@ -15,7 +15,8 @@
  * nothing touches `document` until something actually asks for a picture.
  */
 
-import { PALETTE, RIDER } from '../config';
+import { RIDER } from '../config';
+import { palette } from './theme';
 import type { PowerUpType } from '../game/powerups';
 import { effectFrame, poseLayout, RIDER_LAYOUT, ringSpinFrame, type RiderPose } from './rider-pose';
 import {
@@ -87,8 +88,8 @@ export interface RiderPainter {
 
 export function createRiderPainter(): RiderPainter {
   const atlas = paintRiderAtlas().canvas;
-  const sky = colorToCss(PALETTE.skyBottom);
-  const water = colorToCss(PALETTE.water);
+  const sky = colorToCss(palette().skyBottom);
+  const water = colorToCss(palette().water);
 
   /** Copies one atlas cell onto a picture, mirrored if asked. */
   const blit = (

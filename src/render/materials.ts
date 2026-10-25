@@ -18,6 +18,7 @@ import {
   DataTexture,
   Mesh,
   MeshBasicMaterial,
+  MeshStandardMaterial,
   MeshToonMaterial,
   NearestFilter,
   type Object3D,
@@ -26,7 +27,8 @@ import {
   type BufferGeometry,
   type Texture,
 } from 'three';
-import { PALETTE, RETRO } from '../config';
+import { RETRO } from '../config';
+import { palette, theme } from './theme';
 import { smoothNormals } from './geometry';
 
 /**
@@ -54,18 +56,32 @@ export function toonGradient(): DataTexture {
   return texture;
 }
 
-/** A flat-shaded toon material in a palette colour, optionally textured. */
-export function toonMaterial(options: {
+/** What every solid surface is drawn with, in whichever look is on. */
+export type SurfaceMaterial = MeshToonMaterial | MeshStandardMaterial | MeshBasicMaterial;
+
+/**
+ * The material for a solid surface in a palette colour, optionally textured:
+ * three toon steps, smooth light or flat unlit colour, as the active look
+ * says (docs/VISUAL-STYLES.md §2).
+ */
+export function surfaceMaterial(options: {
   color?: number;
   map?: Texture;
   vertexColors?: boolean;
-}): MeshToonMaterial {
-  return new MeshToonMaterial({
+}): SurfaceMaterial {
+  const params = {
     color: options.color ?? 0xffffff,
     map: options.map ?? null,
-    gradientMap: toonGradient(),
     vertexColors: options.vertexColors ?? false,
-  });
+  };
+  switch (theme().shading) {
+    case 'toon':
+      return new MeshToonMaterial({ ...params, gradientMap: toonGradient() });
+    case 'lit':
+      return new MeshStandardMaterial({ ...params, roughness: 0.6, metalness: 0 });
+    case 'flat':
+      return new MeshBasicMaterial(params);
+  }
 }
 
 /**
@@ -110,7 +126,7 @@ const OUTLINE_PUSH = `#include <project_vertex>
  * and a rim exactly `RETRO.outlinePixels` game pixels wide at any distance.
  */
 export function outlineMaterial(): MeshBasicMaterial {
-  const material = new MeshBasicMaterial({ color: PALETTE.outline, side: BackSide });
+  const material = new MeshBasicMaterial({ color: palette().outline, side: BackSide });
   material.onBeforeCompile = (shader) => {
     shader.uniforms['uOutlinePixels'] = outlineUniforms.uOutlinePixels;
     shader.uniforms['uResolution'] = outlineUniforms.uResolution;
@@ -141,7 +157,9 @@ export function outlineGeometry(geometry: BufferGeometry): BufferGeometry {
  *
  * @param mesh the mesh to outline; the rim becomes its child
  */
-export function addOutline(mesh: Mesh): Mesh {
+export function addOutline(mesh: Mesh): Mesh | null {
+  // A smooth look has no rims.
+  if (!theme().outlines) return null;
   const outline = new Mesh(outlineGeometry(mesh.geometry), outlineMaterial());
   outline.name = 'outline';
   mesh.add(outline);

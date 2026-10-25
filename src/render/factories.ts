@@ -24,18 +24,24 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
-  type MeshToonMaterial,
   type BufferGeometry,
   type Object3D,
   PlaneGeometry,
   TorusGeometry,
   type Texture,
 } from 'three';
-import { COINS, OBSTACLES, PALETTE, PLAYER, POWERUPS, RETRO, RIDER, TRACK } from '../config';
+import { COINS, OBSTACLES, PLAYER, POWERUPS, RETRO, RIDER, TRACK } from '../config';
+import { palette, theme } from './theme';
 import type { ObstacleType } from '../game/obstacles';
 import type { PowerUpType } from '../game/powerups';
 import { mergeColoredParts, type GeometryPart } from './geometry';
-import { addOutline, outlineGeometry, outlineMaterial, toonMaterial } from './materials';
+import {
+  addOutline,
+  outlineGeometry,
+  outlineMaterial,
+  surfaceMaterial,
+  type SurfaceMaterial,
+} from './materials';
 import type { SceneryKind } from './scenery-layout';
 import { RIDER_LAYOUT } from './rider-pose';
 import { GROUND_AHEAD, GROUND_BEHIND } from './ground-layout';
@@ -64,14 +70,14 @@ function placed(x: number, y: number, z: number, rotation: Matrix4): Matrix4 {
  * One recycled piece of slide, lying flat and cut across its length so the
  * visual bend in curve.ts can be baked into its vertices.
  */
-export function createTrackSegment(texture: Texture): Mesh<PlaneGeometry, MeshToonMaterial> {
+export function createTrackSegment(texture: Texture): Mesh<PlaneGeometry, SurfaceMaterial> {
   const geometry = new PlaneGeometry(
     TRACK.width,
     TRACK.segmentLength,
     1,
     SEGMENT_DIVISIONS,
   ).rotateX(-Math.PI / 2);
-  const material = toonMaterial({ map: texture });
+  const material = surfaceMaterial({ map: texture });
   const mesh = new Mesh(geometry, material);
   mesh.matrixAutoUpdate = true;
   return mesh;
@@ -85,14 +91,14 @@ export function createTrackSegment(texture: Texture): Mesh<PlaneGeometry, MeshTo
  * touch further back in the depth test as well, so where the two nearly touch
  * the slide always wins rather than flickering against the grass.
  */
-export function createGroundMesh(): Mesh<PlaneGeometry, MeshToonMaterial> {
+export function createGroundMesh(): Mesh<PlaneGeometry, SurfaceMaterial> {
   const geometry = new PlaneGeometry(
     RETRO.ground.width,
     GROUND_AHEAD + GROUND_BEHIND,
     1,
     RETRO.ground.rows,
   ).rotateX(-Math.PI / 2);
-  const material = toonMaterial({ map: createGroundTexture() });
+  const material = surfaceMaterial({ map: createGroundTexture() });
   material.polygonOffset = true;
   material.polygonOffsetFactor = 1;
   material.polygonOffsetUnits = 1;
@@ -201,7 +207,7 @@ export function riderAnimalY(dy: number): number {
 export function createBlobShadow(): Mesh<CircleGeometry, MeshBasicMaterial> {
   const geometry = new CircleGeometry(PLAYER.radius * 1.5, 8).rotateX(-Math.PI / 2);
   const material = new MeshBasicMaterial({
-    color: PALETTE.outline,
+    color: palette().outline,
     transparent: true,
     opacity: 0.3,
     depthWrite: false,
@@ -215,8 +221,8 @@ export function createBlobShadow(): Mesh<CircleGeometry, MeshBasicMaterial> {
  * the same step of the ramp, which flattens the picture completely.
  */
 export function createLights(): Object3D[] {
-  const ambient = new AmbientLight(PALETTE.skyTop, 0.95);
-  const sun = new DirectionalLight(PALETTE.sun, 2.1);
+  const ambient = new AmbientLight(palette().skyTop, 0.95);
+  const sun = new DirectionalLight(palette().sun, 2.1);
   // Low and to one side, like the sun in the painted sky.
   sun.position.set(3, 7, 5);
   return [ambient, sun];
@@ -229,11 +235,11 @@ function mineParts(): GeometryPart[] {
   const size = OBSTACLES.size.lowMine;
   const radius = size.w / 2;
   const parts: GeometryPart[] = [
-    { geometry: new IcosahedronGeometry(radius, 1), color: PALETTE.red },
+    { geometry: new IcosahedronGeometry(radius, 1), color: palette().red },
     // The band, a flattened ring around the middle.
     {
       geometry: new CylinderGeometry(radius * 0.86, radius * 0.86, radius * 0.3, 10),
-      color: PALETTE.cream,
+      color: palette().cream,
     },
   ];
   // Spikes around the equator and one on top, in the outline colour, so the
@@ -251,10 +257,10 @@ function mineParts(): GeometryPart[] {
         Math.sin(angle) * reach,
         new Matrix4().makeRotationZ(-Math.PI / 2).premultiply(new Matrix4().makeRotationY(-angle)),
       ),
-      color: PALETTE.outline,
+      color: palette().outline,
     });
   }
-  parts.push({ geometry: spike(), matrix: at(0, radius * 1.1, 0), color: PALETTE.outline });
+  parts.push({ geometry: spike(), matrix: at(0, radius * 1.1, 0), color: palette().outline });
   return parts;
 }
 
@@ -269,19 +275,19 @@ function highObstacleParts(): GeometryPart[] {
     {
       geometry: new BoxGeometry(size.w, barHeight, size.d),
       matrix: at(0, -size.h / 2 + barHeight / 2, 0),
-      color: PALETTE.blue,
+      color: palette().blue,
     },
     // The banner above it, which is what you see from a distance.
     {
       geometry: new BoxGeometry(size.w * 0.92, bannerHeight * 0.86, size.d * 0.45),
       matrix: at(0, -size.h / 2 + barHeight + (bannerHeight * 0.86) / 2, 0),
-      color: PALETTE.skyBlue,
+      color: palette().skyBlue,
     },
     // A cream stripe across the banner.
     {
       geometry: new BoxGeometry(size.w * 0.92, bannerHeight * 0.2, size.d * 0.6),
       matrix: at(0, -size.h / 2 + barHeight + bannerHeight * 0.5, 0),
-      color: PALETTE.cream,
+      color: palette().cream,
     },
   ];
 }
@@ -299,13 +305,13 @@ function fullBlockerParts(): GeometryPart[] {
     parts.push({
       geometry: new BoxGeometry(size.w, crateHeight, size.d),
       matrix: at(0, y, 0),
-      color: i % 2 === 0 ? PALETTE.sand : PALETTE.slideEdge,
+      color: i % 2 === 0 ? palette().sand : palette().slideEdge,
     });
     // A plank line across each crate.
     parts.push({
       geometry: new BoxGeometry(size.w * 1.04, crateHeight * 0.2, size.d * 1.04),
       matrix: at(0, y, 0),
-      color: PALETTE.outline,
+      color: palette().outline,
     });
   }
 
@@ -313,7 +319,7 @@ function fullBlockerParts(): GeometryPart[] {
   parts.push({
     geometry: new BoxGeometry(size.w * 1.06, crateHeight * 0.4, size.d * 0.3),
     matrix: at(0, 0, size.d / 2),
-    color: PALETTE.orange,
+    color: palette().orange,
   });
   return parts;
 }
@@ -326,13 +332,13 @@ function softObstacleParts(): GeometryPart[] {
     {
       geometry: new TorusGeometry(size.w / 2.6, size.h / 2, 6, 12),
       matrix: flat,
-      color: PALETTE.softObstacle,
+      color: palette().softObstacle,
     },
     // A thinner ring sitting just on top, which gives it its inflated look.
     {
       geometry: new TorusGeometry(size.w / 2.6, size.h / 3.4, 6, 12),
       matrix: placed(0, size.h * 0.22, 0, flat),
-      color: PALETTE.cream,
+      color: palette().cream,
     },
   ];
 }
@@ -407,13 +413,13 @@ export interface PickupProp {
  */
 export function createPickupMesh(type: PowerUpType): PickupProp {
   const color =
-    type === 'shield' ? PALETTE.shield : type === 'magnet' ? PALETTE.magnet : PALETTE.boost;
+    type === 'shield' ? palette().shield : type === 'magnet' ? palette().magnet : palette().boost;
   const radius = POWERUPS.pickupSize;
   const group = new Group();
 
   const ring = new Mesh(
     new TorusGeometry(radius * 0.82, radius * 0.16, 6, 14),
-    toonMaterial({ color }),
+    surfaceMaterial({ color }),
   );
   addOutline(ring);
   group.add(ring);
@@ -450,21 +456,23 @@ function towerParts(warm: boolean): GeometryPart[] {
   const height = 9;
   const columnRadius = 0.5;
   const slideRadius = 2.1;
-  const slideColors = warm ? [PALETTE.red, PALETTE.orange] : [PALETTE.blue, PALETTE.skyBlue];
-  const roofColor = warm ? PALETTE.red : PALETTE.blue;
+  const slideColors = warm
+    ? [palette().red, palette().orange]
+    : [palette().blue, palette().skyBlue];
+  const roofColor = warm ? palette().red : palette().blue;
 
   const parts: GeometryPart[] = [
     // The column.
     {
       geometry: new CylinderGeometry(columnRadius, columnRadius * 1.2, height, 8),
       matrix: at(0, height / 2, 0),
-      color: PALETTE.slideEdge,
+      color: palette().slideEdge,
     },
     // The platform at the top.
     {
       geometry: new CylinderGeometry(1.5, 1.5, 0.4, 8),
       matrix: at(0, height, 0),
-      color: PALETTE.sand,
+      color: palette().sand,
     },
     // A pointed roof over it.
     {
@@ -476,7 +484,7 @@ function towerParts(warm: boolean): GeometryPart[] {
     {
       geometry: new BoxGeometry(0.12, height, 0.12),
       matrix: at(-columnRadius - 0.25, height / 2, 0),
-      color: PALETTE.outline,
+      color: palette().outline,
     },
   ];
 
@@ -504,7 +512,7 @@ function towerParts(warm: boolean): GeometryPart[] {
   parts.push({
     geometry: new CylinderGeometry(slideRadius + 0.8, slideRadius + 0.9, 0.5, 10),
     matrix: at(0, 0.25, 0),
-    color: PALETTE.water,
+    color: palette().water,
   });
   return parts;
 }
@@ -515,17 +523,17 @@ function treeParts(): GeometryPart[] {
     {
       geometry: new CylinderGeometry(0.26, 0.34, 2.2, 6),
       matrix: at(0, 1.1, 0),
-      color: PALETTE.forestDark,
+      color: palette().forestDark,
     },
     {
       geometry: new IcosahedronGeometry(1.5, 0),
       matrix: at(0, 3, 0),
-      color: PALETTE.forest,
+      color: palette().forest,
     },
     {
       geometry: new IcosahedronGeometry(1, 0),
       matrix: at(0.2, 4.1, 0.1),
-      color: PALETTE.forestLight,
+      color: palette().forestLight,
     },
   ];
 }
@@ -537,7 +545,7 @@ function palmParts(): GeometryPart[] {
     {
       geometry: new CylinderGeometry(0.17, 0.3, height, 6),
       matrix: placed(0, height / 2, 0, new Matrix4().makeRotationZ(0.12)),
-      color: PALETTE.sand,
+      color: palette().sand,
     },
   ];
 
@@ -553,7 +561,7 @@ function palmParts(): GeometryPart[] {
         Math.sin(angle) * reach,
         new Matrix4().makeRotationZ(-0.25).premultiply(new Matrix4().makeRotationY(-angle)),
       ),
-      color: i % 2 === 0 ? PALETTE.forest : PALETTE.forestLight,
+      color: i % 2 === 0 ? palette().forest : palette().forestLight,
     });
   }
 
@@ -561,7 +569,7 @@ function palmParts(): GeometryPart[] {
     parts.push({
       geometry: new IcosahedronGeometry(0.22, 0),
       matrix: at(side * 0.26 - 0.3, height - 0.45, 0.1),
-      color: PALETTE.forestDark,
+      color: palette().forestDark,
     });
   }
   return parts;
@@ -575,24 +583,24 @@ function hutParts(): GeometryPart[] {
     {
       geometry: new BoxGeometry(width, wall, width),
       matrix: at(0, wall / 2, 0),
-      color: PALETTE.slideEdge,
+      color: palette().slideEdge,
     },
     {
       geometry: new ConeGeometry(width * 0.92, 1.4, 4),
       matrix: placed(0, wall + 0.7, 0, new Matrix4().makeRotationY(Math.PI / 4)),
-      color: PALETTE.forestDark,
+      color: palette().forestDark,
     },
     // The doorway.
     {
       geometry: new BoxGeometry(width * 0.34, wall * 0.62, 0.12),
       matrix: at(0, wall * 0.31, width / 2),
-      color: PALETTE.outline,
+      color: palette().outline,
     },
     // A sand step at the front.
     {
       geometry: new BoxGeometry(width * 0.6, 0.18, 0.5),
       matrix: at(0, 0.09, width / 2 + 0.2),
-      color: PALETTE.sand,
+      color: palette().sand,
     },
   ];
 }
@@ -633,7 +641,7 @@ export function createOutlinedInstances(
   geometry: BufferGeometry,
   capacity: number,
 ): OutlinedInstances {
-  const mesh = new InstancedMesh(geometry, toonMaterial({ vertexColors: true }), capacity);
+  const mesh = new InstancedMesh(geometry, surfaceMaterial({ vertexColors: true }), capacity);
   mesh.instanceMatrix.setUsage(DynamicDrawUsage);
   mesh.frustumCulled = false;
   mesh.count = 0;
@@ -644,6 +652,9 @@ export function createOutlinedInstances(
   outline.instanceMatrix.setUsage(DynamicDrawUsage);
   outline.frustumCulled = false;
   outline.count = 0;
+  // A smooth look has no rims; the copy is kept so the layers that place it
+  // need not care, but it is never drawn.
+  outline.visible = theme().outlines;
   return { mesh, outline };
 }
 

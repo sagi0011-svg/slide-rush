@@ -11,7 +11,8 @@
  */
 
 import { Color, Matrix4, Quaternion, Vector3, type InstancedMesh, type Scene } from 'three';
-import { PALETTE, RETRO } from '../config';
+import { RETRO } from '../config';
+import { palette } from './theme';
 import { createSplashInstances } from './factories';
 
 export interface Splash {
@@ -34,9 +35,6 @@ export interface Splash {
   update(frameSeconds: number, travelled: number): void;
   dispose(): void;
 }
-
-/** The three colours a splash pixel can be, from the water palette. */
-const COLORS = [PALETTE.waterLight, PALETTE.water, PALETTE.waterDeep] as const;
 
 const matrix = new Matrix4();
 const position = new Vector3();
@@ -74,6 +72,9 @@ export function createSplash(scene: Scene): Splash {
   const colour = new Color();
 
   // Every slot's colour is set once; a particle keeps whichever it was given.
+  // The three colours a splash pixel can be, from the water palette.
+  const { waterLight, water, waterDeep } = palette();
+  const COLORS = [waterLight, water, waterDeep] as const;
   for (let i = 0; i < capacity; i += 1) {
     colour.set(COLORS[i % COLORS.length] as number);
     mesh.setColorAt(i, colour);

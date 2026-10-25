@@ -33,6 +33,7 @@ import { buy, equip, nextGoal, type ItemKind, type ShopState } from './game/shop
 import { displayScore } from './game/scoring';
 import { createInputSource } from './input';
 import { createRenderer, type Frame, type Renderer } from './render/scene';
+import { setVisualStyle } from './render/theme';
 import { frameAlpha, lerp } from './render/interpolate';
 import { createAudioManager } from './audio/manager';
 import { createDebugOverlay, isDebugEnabled, type DebugInfo } from './debug/overlay';
@@ -110,6 +111,9 @@ function boot(): void {
     // The equipped animal and ring, falling back to the free starters for any
     // id this build does not know, or any that is not owned (§2, §3). Only
     // ever a picture (rule 13).
+    // Drawn in the look chosen in Settings (docs/VISUAL-STYLES.md). Only ever
+    // a picture: nothing the run does reads it.
+    setVisualStyle(save.data.visualStyle);
     renderer = createRenderer(canvas, resolveRider(shop.equipped.animal, shop.equipped.ring));
   } catch (error) {
     console.error('Slide Rush: could not start WebGL', error);

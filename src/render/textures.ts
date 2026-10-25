@@ -14,12 +14,14 @@
 import {
   CanvasTexture,
   ClampToEdgeWrapping,
+  LinearFilter,
   LinearMipmapLinearFilter,
   NearestFilter,
   RepeatWrapping,
   SRGBColorSpace,
 } from 'three';
-import { LANES, PALETTE, RETRO, TRACK } from '../config';
+import { LANES, RETRO, TRACK } from '../config';
+import { palette, theme } from './theme';
 import type { PowerUpType } from '../game/powerups';
 import { ATLAS_SIZE, atlasEntries, COIN_ICON, SPRITE_LEGEND } from './sprites';
 import { hillRidge } from './hill-layout';
@@ -72,22 +74,39 @@ export function coinIconDataUrl(): string {
 function calmInTheDistance(texture: CanvasTexture): CanvasTexture {
   texture.generateMipmaps = true;
   texture.minFilter = LinearMipmapLinearFilter;
-  texture.magFilter = NearestFilter;
+  texture.magFilter = theme().smoothTextures ? LinearFilter : NearestFilter;
   texture.anisotropy = RETRO.distantAnisotropy;
   return texture;
 }
 
-/** Turns a finished canvas into a texture that is never smoothed or mipmapped. */
-function toTexture(ctx: CanvasRenderingContext2D): CanvasTexture {
+/**
+ * Turns a finished canvas into a texture that is never smoothed or mipmapped.
+ *
+ * @param smoothable true for a picture of the world (sky, hills) that a smooth
+ *   look draws smoothed (docs/VISUAL-STYLES.md §1). Sprites — the riders,
+ *   coins and icons — stay crisp pixels in every look.
+ */
+function toTexture(ctx: CanvasRenderingContext2D, smoothable = false): CanvasTexture {
   const texture = new CanvasTexture(ctx.canvas);
   texture.colorSpace = SRGBColorSpace;
-  texture.magFilter = NearestFilter;
-  texture.minFilter = NearestFilter;
+  const smooth = smoothable && theme().smoothTextures;
+  texture.magFilter = smooth ? LinearFilter : NearestFilter;
+  texture.minFilter = smooth ? LinearFilter : NearestFilter;
   texture.generateMipmaps = false;
   texture.anisotropy = 1;
   texture.wrapS = ClampToEdgeWrapping;
   texture.wrapT = ClampToEdgeWrapping;
   return texture;
+}
+
+/** Two colours mixed, `t` of the way from the first to the second. */
+function mixColors(from: number, to: number, t: number): number {
+  const channel = (shift: number): number => {
+    const a = (from >> shift) & 0xff;
+    const b = (to >> shift) & 0xff;
+    return Math.round(a + (b - a) * t) << shift;
+  };
+  return channel(16) | channel(8) | channel(0);
 }
 
 /** One pixel. */
@@ -138,7 +157,7 @@ function fillMask(
   box: { x: number; y: number; width: number; height: number },
   inside: (x: number, y: number) => boolean,
   body: number,
-  outline: number = PALETTE.outline,
+  outline: number = palette().outline,
 ): void {
   const { x: ox, y: oy, width, height } = box;
   const mask: boolean[] = [];
@@ -183,15 +202,22 @@ export function createSkyTexture(): CanvasTexture {
     RETRO.sky;
   const ctx = pixelCanvas(width, height);
 
-  const top = colorToCss(PALETTE.skyTop);
-  const bottom = colorToCss(PALETTE.skyBottom);
+  const top = colorToCss(palette().skyTop);
+  const bottom = colorToCss(palette().skyBottom);
   const bandTop = (ditherCentre - ditherHeight / 2) * height;
   const bandBottom = (ditherCentre + ditherHeight / 2) * height;
 
+  const dither = theme().skyDither;
   for (let y = 0; y < height; y += 1) {
     // How much of the lower colour this row wants, 0..1.
     const mix =
       bandBottom === bandTop ? 1 : Math.min(1, Math.max(0, (y - bandTop) / (bandBottom - bandTop)));
+    if (!dither) {
+      // A smooth look fades one colour into the other instead.
+      ctx.fillStyle = colorToCss(mixColors(palette().skyTop, palette().skyBottom, mix));
+      ctx.fillRect(0, y, width, 1);
+      continue;
+    }
     for (let x = 0; x < width; x += 1) {
       px(ctx, x, y, mix > bayer(x, y) ? bottom : top);
     }
@@ -209,14 +235,17 @@ export function createSkyTexture(): CanvasTexture {
       const dy = y + 0.5 - cy;
       const distance = Math.sqrt(dx * dx + dy * dy);
       if (distance <= sunRadius) {
-        px(ctx, x, y, colorToCss(PALETTE.sun));
-      } else if (distance <= glow && bayer(x, y) < 1 - (distance - sunRadius) / sunGlowGrow) {
-        px(ctx, x, y, colorToCss(PALETTE.sunGlow));
+        px(ctx, x, y, colorToCss(palette().sun));
+      } else if (
+        distance <= glow &&
+        (dither ? bayer(x, y) : 0.5) < 1 - (distance - sunRadius) / sunGlowGrow
+      ) {
+        px(ctx, x, y, colorToCss(palette().sunGlow));
       }
     }
   }
 
-  return toTexture(ctx);
+  return toTexture(ctx, true);
 }
 
 /**
@@ -238,9 +267,9 @@ export function createSkyTexture(): CanvasTexture {
 export function createHillTexture(layer: number, tileWidth: number, height: number): CanvasTexture {
   const ctx = pixelCanvas(tileWidth, height);
   const ridge = hillRidge(layer, tileWidth, height);
-  const body = colorToCss(layer === 0 ? PALETTE.mountain : PALETTE.mountainDark);
-  const rim = colorToCss(PALETTE.outline);
-  const outlined = layer !== 0;
+  const body = colorToCss(layer === 0 ? palette().mountain : palette().mountainDark);
+  const rim = colorToCss(palette().outline);
+  const outlined = layer !== 0 && theme().outlines;
 
   // Rows count down from the top of the canvas; a column's hill starts at row
   // height - ridge and runs to the bottom.
@@ -254,8 +283,8 @@ export function createHillTexture(layer: number, tileWidth: number, height: numb
     }
   }
 
-  const texture = toTexture(ctx);
-  // Repeated sideways along the strip; never smoothed, never mipmapped.
+  const texture = toTexture(ctx, true);
+  // Repeated sideways along the strip; never mipmapped.
   texture.wrapS = RepeatWrapping;
   return texture;
 }
@@ -274,7 +303,7 @@ export function createSlideTexture(): CanvasTexture {
   const height = Math.round(pattern * perUnit);
   const ctx = pixelCanvas(width, height);
 
-  ctx.fillStyle = colorToCss(PALETTE.water);
+  ctx.fillStyle = colorToCss(palette().water);
   ctx.fillRect(0, 0, width, height);
 
   // No dither on the water. A scatter of single pixels looks lovely on the
@@ -288,9 +317,9 @@ export function createSlideTexture(): CanvasTexture {
   const stripeHeight = Math.max(1, Math.round(RETRO.water.stripeThickness * height));
   for (let i = 0; i < RETRO.water.stripes; i += 1) {
     const top = Math.round((i / RETRO.water.stripes) * height);
-    ctx.fillStyle = colorToCss(PALETTE.waterLight);
+    ctx.fillStyle = colorToCss(palette().waterLight);
     ctx.fillRect(0, top, width, stripeHeight);
-    ctx.fillStyle = colorToCss(PALETTE.waterDeep);
+    ctx.fillStyle = colorToCss(palette().waterDeep);
     ctx.globalAlpha = RETRO.water.shadeStrength;
     ctx.fillRect(0, top + stripeHeight, width, stripeHeight);
     ctx.globalAlpha = 1;
@@ -300,7 +329,7 @@ export function createSlideTexture(): CanvasTexture {
   const markerPx = Math.max(1, Math.round(TRACK.markerWidth * perUnit));
   for (const boundary of [-0.5, 0.5]) {
     const x = Math.round(width / 2 + boundary * LANES.width * perUnit - markerPx / 2);
-    ctx.fillStyle = colorToCss(PALETTE.waterLight);
+    ctx.fillStyle = colorToCss(palette().waterLight);
     ctx.globalAlpha = 0.5;
     ctx.fillRect(x, 0, markerPx, height);
     ctx.globalAlpha = 1;
@@ -311,16 +340,18 @@ export function createSlideTexture(): CanvasTexture {
   const outlinePx = Math.max(1, Math.round(RETRO.water.rimOutline * perUnit));
   for (const side of [0, 1]) {
     const rimX = side === 0 ? 0 : width - rimPx;
-    ctx.fillStyle = colorToCss(PALETTE.slideEdge);
+    ctx.fillStyle = colorToCss(palette().slideEdge);
     ctx.fillRect(rimX, 0, rimPx, height);
     // A darker sand step on the inner side, which gives the rim some depth.
-    ctx.fillStyle = colorToCss(PALETTE.sand);
+    ctx.fillStyle = colorToCss(palette().sand);
     ctx.fillRect(side === 0 ? rimPx - 1 : width - rimPx, 0, 1, height);
-    ctx.fillStyle = colorToCss(PALETTE.outline);
-    ctx.fillRect(side === 0 ? 0 : width - outlinePx, 0, outlinePx, height);
+    if (theme().outlines) {
+      ctx.fillStyle = colorToCss(palette().outline);
+      ctx.fillRect(side === 0 ? 0 : width - outlinePx, 0, outlinePx, height);
+    }
   }
 
-  const texture = calmInTheDistance(toTexture(ctx));
+  const texture = calmInTheDistance(toTexture(ctx, true));
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;
   // A whole number of patterns per segment, so segment joins never show.
@@ -339,11 +370,11 @@ export function createSlideTexture(): CanvasTexture {
 export function createGroundTexture(): CanvasTexture {
   const size = Math.round(RETRO.ground.patternLength * RETRO.texturePixelsPerUnit);
   const ctx = pixelCanvas(size, size);
-  ctx.fillStyle = colorToCss(PALETTE.forestLight);
+  ctx.fillStyle = colorToCss(palette().forestLight);
   ctx.fillRect(0, 0, size, size);
   // Two tufts per pattern, staggered, each a whole unit across.
   const tuft = RETRO.texturePixelsPerUnit;
-  ctx.fillStyle = colorToCss(PALETTE.forest);
+  ctx.fillStyle = colorToCss(palette().forest);
   for (const [x, y] of [
     [0.15, 0.2],
     [0.6, 0.65],
@@ -352,7 +383,7 @@ export function createGroundTexture(): CanvasTexture {
   }
   // The ground stretches away to the horizon just like the slide, so it gets
   // the same treatment: calm in the distance, crisp up close.
-  const texture = calmInTheDistance(toTexture(ctx));
+  const texture = calmInTheDistance(toTexture(ctx, true));
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;
   return texture;
@@ -384,7 +415,7 @@ export function createCoinStripTexture(): CanvasTexture {
       const dy = (y + 0.5 - centre) / radius;
       return dx * dx + dy * dy <= 1;
     };
-    fillMask(ctx, box, inside, PALETTE.yellow);
+    fillMask(ctx, box, inside, palette().yellow);
 
     // A highlight up the left of the face, so the spin reads as a solid disc.
     // Skipped on the edge-on frames, where there is no face to catch light.
@@ -395,7 +426,7 @@ export function createCoinStripTexture(): CanvasTexture {
           const dx = (x + 0.5 - centre) / halfWidth;
           const dy = (y + 0.5 - centre) / radius;
           if (dx * dx + dy * dy > 0.42) continue;
-          if (dx < -0.1 || dy < -0.1) px(ctx, box.x + x, y, colorToCss(PALETTE.sun));
+          if (dx < -0.1 || dy < -0.1) px(ctx, box.x + x, y, colorToCss(palette().sun));
         }
       }
     }
@@ -474,13 +505,13 @@ export function createPickupIconTexture(type: PowerUpType): CanvasTexture {
   const size = RETRO.pickup.iconPixels;
   const ctx = pixelCanvas(size, size);
   const body =
-    type === 'shield' ? PALETTE.shield : type === 'magnet' ? PALETTE.magnet : PALETTE.boost;
+    type === 'shield' ? palette().shield : type === 'magnet' ? palette().magnet : palette().boost;
   drawPixelMap(ctx, PICKUP_ICONS[type], {
-    o: PALETTE.outline,
+    o: palette().outline,
     b: body,
-    c: PALETTE.cream,
-    m: PALETTE.magnet,
-    r: PALETTE.red,
+    c: palette().cream,
+    m: palette().magnet,
+    r: palette().red,
   });
   return toTexture(ctx);
 }

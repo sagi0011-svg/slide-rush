@@ -17,6 +17,7 @@ import {
   Color,
   Mesh,
   MeshBasicMaterial,
+  LinearFilter,
   NearestFilter,
   OrthographicCamera,
   PlaneGeometry,
@@ -27,6 +28,7 @@ import {
 } from 'three';
 import type { PixelGrid, TargetSize } from './retro';
 import type { Backdrop } from './sky';
+import { theme } from './theme';
 
 export interface PixelPass {
   /**
@@ -65,11 +67,16 @@ export interface PixelPass {
  *   picture does not cover; the frame colour, so they read as its edge
  */
 export function createPixelPass(renderer: WebGLRenderer, borderColor: number): PixelPass {
+  // Nearest both ways for a pixel look: it depends on nothing being smoothed.
+  // A smooth look is drawn at up to full resolution and smoothed into place,
+  // with multisampled edges (docs/VISUAL-STYLES.md §2).
+  const { pixelated, antialias } = theme();
+  const filter = pixelated ? NearestFilter : LinearFilter;
   const target = new WebGLRenderTarget(1, 1, {
-    // Nearest both ways: the whole look depends on nothing being smoothed.
-    magFilter: NearestFilter,
-    minFilter: NearestFilter,
+    magFilter: filter,
+    minFilter: filter,
     generateMipmaps: false,
+    samples: antialias ? 4 : 0,
     // The scene needs a depth buffer of its own to sort itself out in.
     depthBuffer: true,
     stencilBuffer: false,

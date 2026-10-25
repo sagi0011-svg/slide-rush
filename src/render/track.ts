@@ -7,14 +7,15 @@
  * once, when that segment is recycled onto a new stretch of slide.
  */
 
-import type { BufferAttribute, Texture, Mesh, MeshToonMaterial, PlaneGeometry, Scene } from 'three';
+import type { BufferAttribute, Texture, Mesh, PlaneGeometry, Scene } from 'three';
+import type { SurfaceMaterial } from './materials';
 import { TRACK } from '../config';
 import { createTrackSegment } from './factories';
 import { curveX, curveY } from './curve';
 import { segmentWindowStart, wrapSegmentStart } from './recycle';
 
 interface Segment {
-  mesh: Mesh<PlaneGeometry, MeshToonMaterial>;
+  mesh: Mesh<PlaneGeometry, SurfaceMaterial>;
   /** Distance from the start of the slide to this segment's near edge, in units. */
   startS: number;
   /** The flat, unbent position of every vertex, so bending never accumulates. */

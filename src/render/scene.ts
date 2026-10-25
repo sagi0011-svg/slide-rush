@@ -10,7 +10,8 @@
  */
 
 import { Color, Fog, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
-import { CAMERA, LANES, PALETTE, PLAYER } from '../config';
+import { CAMERA, LANES, PLAYER } from '../config';
+import { palette, theme } from './theme';
 import { createQualityGovernor } from './quality';
 import { createBlobShadow, createLights } from './factories';
 import { createSlideTexture } from './textures';
@@ -27,7 +28,7 @@ import { createSky, type Sky } from './sky';
 import { createScenery, type Scenery } from './scenery';
 import { createGround, type Ground } from './ground';
 import { createSplash, type Splash } from './splash';
-import { pixelCount, pixelGrid } from './retro';
+import { pixelCount, pixelGrid, smoothGrid } from './retro';
 import { setOutlineResolution } from './materials';
 import type { HitboxList } from '../game/hitboxes';
 import { curveX, curveY } from './curve';
@@ -105,12 +106,12 @@ export function createRenderer(canvas: HTMLCanvasElement, riderPair: RiderPair):
     antialias: false,
     powerPreference: 'high-performance',
   });
-  renderer.setClearColor(new Color(PALETTE.sky), 1);
+  renderer.setClearColor(new Color(palette().sky), 1);
 
   const scene = new Scene();
   // Fog hides track segments as they are recycled into view (SPEC 2). It
   // matches the bottom of the sky, so the slide fades into the sunset.
-  scene.fog = new Fog(PALETTE.fog, CAMERA.fogNear, CAMERA.fogFar);
+  scene.fog = new Fog(palette().fog, CAMERA.fogNear, CAMERA.fogFar);
 
   const camera = new PerspectiveCamera(CAMERA.fov, CAMERA.aspect, CAMERA.near, CAMERA.far);
   const chase: ChaseCamera = createChaseCamera(camera);
@@ -151,7 +152,7 @@ export function createRenderer(canvas: HTMLCanvasElement, riderPair: RiderPair):
   scene.add(shadow);
 
   const quality = createQualityGovernor(window.devicePixelRatio);
-  const pixelPass: PixelPass = createPixelPass(renderer, PALETTE.letterbox);
+  const pixelPass: PixelPass = createPixelPass(renderer, palette().letterbox);
 
   const resize = (): void => {
     const width = canvas.clientWidth;
@@ -162,7 +163,11 @@ export function createRenderer(canvas: HTMLCanvasElement, riderPair: RiderPair):
     // is drawn at the screen's own resolution for that, which is cheap: the
     // scene itself still renders small. The frame-rate watch now makes the
     // game pixels bigger when a phone cannot keep up (SPEC 13).
-    const grid = pixelGrid(width, height, window.devicePixelRatio, quality.pixelRatio);
+    const look = theme();
+    const dpr = window.devicePixelRatio;
+    const grid = look.pixelated
+      ? pixelGrid(width, height, dpr, quality.pixelRatio, look)
+      : smoothGrid(width, height, dpr, quality.pixelRatio);
     renderer.setPixelRatio(1);
     renderer.setSize(grid.bufferWidth, grid.bufferHeight, false);
     // The shape of the picture actually drawn, which can differ from the
@@ -170,7 +175,12 @@ export function createRenderer(canvas: HTMLCanvasElement, riderPair: RiderPair):
     camera.aspect = grid.target.width / grid.target.height;
     camera.updateProjectionMatrix();
     pixelPass.resize(grid);
-    sky.resize(grid.target);
+    // The hills are laid out in game pixels. A smooth look has none, so it
+    // lays them out on the v0.2 grid and lets them be smoothed up from there:
+    // the same hills, the same size, without the steps.
+    sky.resize(
+      look.pixelated ? grid.target : pixelGrid(width, height, dpr, quality.pixelRatio).target,
+    );
     // The outlines are measured in game pixels, so they need to know how many.
     setOutlineResolution(grid.target.width, grid.target.height);
   };

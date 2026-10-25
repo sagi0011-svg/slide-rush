@@ -930,3 +930,172 @@ export const PALETTE = {
   debugDeadly: 0xff2d55,
   debugStumble: 0xffd60a,
 } as const;
+
+/** Every colour key the render layer reads; each visual style fills them all. */
+export type Palette = { readonly [K in keyof typeof PALETTE]: number };
+
+/**
+ * The Classic 3D colours (docs/VISUAL-STYLES.md §1): a bright day, the v0.1
+ * palette where it had one, and matching daylight colours for everything v0.1
+ * did not have yet. The riders keep their own colours in every style.
+ */
+const CLASSIC_PALETTE: Palette = {
+  ...PALETTE,
+  outline: 0x0b1726,
+  skyTop: 0x4fb3ea,
+  skyBottom: 0xbfe8ff,
+  sun: 0xfffbe6,
+  sunGlow: 0xfff0b3,
+  mountain: 0x8fc3b5,
+  mountainDark: 0x5c9c86,
+  forest: 0x3f9e4f,
+  forestLight: 0x74c66f,
+  forestDark: 0x2c7a3c,
+  water: 0x2aa9e0,
+  waterLight: 0x9fe4ff,
+  waterDeep: 0x1b7fbf,
+  slideEdge: 0xffffff,
+  sand: 0xe6d3a3,
+  red: 0xe03131,
+  orange: 0xff922b,
+  yellow: 0xfcc419,
+  blue: 0x1971c2,
+  skyBlue: 0x22d3ee,
+  cream: 0xffffff,
+  sky: 0xbfe8ff,
+  fog: 0xbfe8ff,
+  slide: 0x3fc1f2,
+  player: 0xffe066,
+  lowMine: 0xe03131,
+  highObstacle: 0x1971c2,
+  fullBlocker: 0xc9a46a,
+  softObstacle: 0xfcc419,
+  coin: 0xffd43b,
+  shield: 0x22d3ee,
+  magnet: 0x9775fa,
+  boost: 0xff922b,
+  letterbox: 0x0b1726,
+};
+
+/** The seven colours of the Retro Pixel look (docs/VISUAL-STYLES.md §1). */
+const RETRO_SEVEN = {
+  deepWater: 0x0e3a63,
+  panel: 0x15558c,
+  outline: 0x071e33,
+  aqua: 0x3fd0e0,
+  walls: 0xff6b4a,
+  coin: 0xffd23f,
+  foam: 0xbff7ff,
+} as const;
+
+/**
+ * The Retro Pixel colours: every world colour is one of the seven. The riders
+ * keep their own (an animal needs more than seven), and the debug hitboxes
+ * stay the colours they are read in.
+ */
+const PIXEL_PALETTE: Palette = {
+  ...PALETTE,
+  outline: RETRO_SEVEN.outline,
+  skyTop: RETRO_SEVEN.deepWater,
+  skyBottom: RETRO_SEVEN.panel,
+  sun: RETRO_SEVEN.coin,
+  sunGlow: RETRO_SEVEN.walls,
+  mountain: RETRO_SEVEN.deepWater,
+  mountainDark: RETRO_SEVEN.outline,
+  forest: RETRO_SEVEN.panel,
+  forestLight: RETRO_SEVEN.aqua,
+  forestDark: RETRO_SEVEN.deepWater,
+  water: RETRO_SEVEN.aqua,
+  waterLight: RETRO_SEVEN.foam,
+  waterDeep: RETRO_SEVEN.panel,
+  slideEdge: RETRO_SEVEN.walls,
+  sand: RETRO_SEVEN.walls,
+  red: RETRO_SEVEN.walls,
+  orange: RETRO_SEVEN.walls,
+  yellow: RETRO_SEVEN.coin,
+  blue: RETRO_SEVEN.panel,
+  skyBlue: RETRO_SEVEN.aqua,
+  cream: RETRO_SEVEN.foam,
+  sky: RETRO_SEVEN.deepWater,
+  fog: RETRO_SEVEN.panel,
+  slide: RETRO_SEVEN.aqua,
+  player: RETRO_SEVEN.coin,
+  lowMine: RETRO_SEVEN.outline,
+  highObstacle: RETRO_SEVEN.walls,
+  fullBlocker: RETRO_SEVEN.walls,
+  softObstacle: RETRO_SEVEN.coin,
+  coin: RETRO_SEVEN.coin,
+  shield: RETRO_SEVEN.foam,
+  magnet: RETRO_SEVEN.panel,
+  boost: RETRO_SEVEN.walls,
+  letterbox: RETRO_SEVEN.outline,
+};
+
+/** How a visual style draws the world (docs/VISUAL-STYLES.md §2). */
+export interface Theme {
+  readonly palette: Palette;
+  /**
+   * True: the scene is drawn into a low-resolution target and blown up with
+   * nearest-neighbour filtering (docs/ART-AND-SHOP.md §1). False: it is drawn
+   * at the resolution the frame-rate watch allows and smoothed.
+   */
+  readonly pixelated: boolean;
+  /** Screen pixels per game pixel, on a phone and on a big screen. */
+  readonly pixelScale: number;
+  readonly largePixelScale: number;
+  /**
+   * How a surface catches the light: three hard toon steps, smooth light, or
+   * none at all (flat, unlit colour).
+   */
+  readonly shading: 'toon' | 'lit' | 'flat';
+  /** The dark inverted-hull rim round solid shapes. */
+  readonly outlines: boolean;
+  /** Linear filtering instead of nearest, so pixel textures read as smooth. */
+  readonly smoothTextures: boolean;
+  /**
+   * Multisampled edges for the smooth look; a pixel look has nothing to
+   * smooth. Done on the render target, so the canvas never needs rebuilding.
+   */
+  readonly antialias: boolean;
+  /** The sky as two colours dithered together, rather than a smooth fade. */
+  readonly skyDither: boolean;
+}
+
+/** The three looks (docs/VISUAL-STYLES.md §1). */
+export const THEMES: Readonly<Record<VisualStyle, Theme>> = {
+  /** The v0.2 look, exactly as it was. */
+  sunset: {
+    palette: PALETTE,
+    pixelated: true,
+    pixelScale: RETRO.pixelScale,
+    largePixelScale: RETRO.largePixelScale,
+    shading: 'toon',
+    outlines: true,
+    smoothTextures: false,
+    antialias: false,
+    skyDither: true,
+  },
+  classic: {
+    palette: CLASSIC_PALETTE,
+    pixelated: false,
+    pixelScale: 1,
+    largePixelScale: 1,
+    shading: 'lit',
+    outlines: false,
+    smoothTextures: true,
+    antialias: true,
+    skyDither: false,
+  },
+  /** Chunkier than Sunset: one game pixel is 5 screen pixels on a phone. */
+  pixel: {
+    palette: PIXEL_PALETTE,
+    pixelated: true,
+    pixelScale: 5,
+    largePixelScale: 4,
+    shading: 'flat',
+    outlines: true,
+    smoothTextures: false,
+    antialias: false,
+    skyDither: true,
+  },
+};
