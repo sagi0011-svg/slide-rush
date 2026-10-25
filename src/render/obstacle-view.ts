@@ -16,12 +16,7 @@ import { Matrix4, Quaternion, Vector3, type InstancedMesh, type Scene } from 'th
 import { LANES, TRACK } from '../config';
 import type { ObstacleType } from '../game/obstacles';
 import { OBSTACLE_TYPES } from '../game/obstacles';
-import {
-  createObstacleGeometry,
-  createOutlinedInstances,
-  obstacleMeshHeight,
-  obstacleSize,
-} from './factories';
+import { createObstacleGeometry, createOutlinedInstances, obstacleMeshHeight } from './factories';
 import { curveX, curveY } from './curve';
 
 /** What the renderer needs to know about one obstacle on the track. */
@@ -55,11 +50,7 @@ export function createObstacleLayer(scene: Scene): ObstacleLayer {
 
   for (const type of OBSTACLE_TYPES) {
     const geometry = createObstacleGeometry(type);
-    const { mesh, outline } = createOutlinedInstances(
-      geometry,
-      TRACK.obstaclePoolSize,
-      obstacleSize(type),
-    );
+    const { mesh, outline } = createOutlinedInstances(geometry, TRACK.obstaclePoolSize);
     scene.add(mesh, outline);
     pools.set(type, { mesh, outline, used: 0 });
   }

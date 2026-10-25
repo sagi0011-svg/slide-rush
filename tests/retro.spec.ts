@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choosePixelScale, lowResSize, pixelCount } from '../src/render/retro';
+import { choosePixelScale, pixelCount, pixelGrid } from '../src/render/retro';
 import { PICKUP_ICONS } from '../src/render/textures';
 import { RETRO, TRACK } from '../src/config';
 
@@ -24,32 +24,106 @@ describe('pixel scale', () => {
   });
 });
 
-describe('low-resolution target', () => {
-  it('is a whole number of game pixels on both sides', () => {
-    const size = lowResSize(641, 1139, 4);
-    expect(Number.isInteger(size.width)).toBe(true);
-    expect(Number.isInteger(size.height)).toBe(true);
+/**
+ * The phones the shimmer was measured on: CSS width and height of the screen,
+ * and its device pixel ratio. The ones with a ratio that is not a whole number
+ * are exactly the ones whose pixels used to swim.
+ */
+const PHONES: readonly (readonly [string, number, number, number])[] = [
+  ['iPhone 13/14/15', 390, 844, 3],
+  ['iPhone SE', 375, 667, 2],
+  ['Galaxy S22/S23', 360, 780, 3],
+  ['Pixel 7', 412, 915, 2.625],
+  ['Galaxy A54', 412, 915, 2.625],
+  ['Xiaomi (typical)', 393, 873, 2.75],
+  ['desktop window', 428, 760, 1.5],
+];
+
+/** The 9:16 playfield on that screen, fitted to its width as styles.css does. */
+function frame(width: number, height: number): [number, number] {
+  const w = Math.min(width, (height * 9) / 16);
+  return [w, (w * 16) / 9];
+}
+
+/** The resolution the frame-rate watch starts at (src/render/quality.ts). */
+const startQuality = (dpr: number): number => Math.min(dpr, 2);
+
+describe('the pixel grid', () => {
+  it('makes every game pixel a whole number of screen pixels, on every phone', () => {
+    for (const [name, w, h, dpr] of PHONES) {
+      const [cssW, cssH] = frame(w, h);
+      const grid = pixelGrid(cssW, cssH, dpr, startQuality(dpr));
+      expect(Number.isInteger(grid.scale), name).toBe(true);
+      expect(grid.scale, name).toBeGreaterThanOrEqual(1);
+      // The picture is exactly target x scale: nothing is stretched.
+      expect(grid.viewport.width, name).toBe(grid.target.width * grid.scale);
+      expect(grid.viewport.height, name).toBe(grid.target.height * grid.scale);
+    }
   });
 
-  it('draws the scene at a sixteenth of the pixels at a scale of 4', () => {
-    const buffer = { width: 640, height: 1136 };
-    const size = lowResSize(buffer.width, buffer.height, 4);
-    const before = buffer.width * buffer.height;
-    // 4x4 screen pixels per game pixel, so one sixteenth of the work.
-    expect(pixelCount(size)).toBeCloseTo(before / 16, -2);
-    expect(pixelCount(size)).toBeLessThan(before);
+  it('draws the canvas at the screen own resolution, so the browser does not rescale it', () => {
+    for (const [name, w, h, dpr] of PHONES) {
+      const [cssW, cssH] = frame(w, h);
+      const grid = pixelGrid(cssW, cssH, dpr, startQuality(dpr));
+      expect(grid.bufferWidth, name).toBe(Math.round(cssW * dpr));
+      expect(grid.bufferHeight, name).toBe(Math.round(cssH * dpr));
+    }
   });
 
-  it('never shrinks below the floor, however small the window', () => {
-    const size = lowResSize(40, 30, 4);
-    expect(size.width).toBe(RETRO.minTargetSize);
-    expect(size.height).toBe(RETRO.minTargetSize);
+  it('fits the picture inside the canvas, centred, with less than one game pixel spare', () => {
+    for (const [name, w, h, dpr] of PHONES) {
+      const [cssW, cssH] = frame(w, h);
+      const grid = pixelGrid(cssW, cssH, dpr, startQuality(dpr));
+      const spareX = grid.bufferWidth - grid.viewport.width;
+      const spareY = grid.bufferHeight - grid.viewport.height;
+      expect(spareX, name).toBeGreaterThanOrEqual(0);
+      expect(spareY, name).toBeGreaterThanOrEqual(0);
+      expect(spareX, name).toBeLessThan(grid.scale);
+      expect(spareY, name).toBeLessThan(grid.scale);
+      // Centred: the two sides of the border differ by at most a pixel.
+      expect(Math.abs(spareX - 2 * grid.viewport.x), name).toBeLessThanOrEqual(1);
+      expect(Math.abs(spareY - 2 * grid.viewport.y), name).toBeLessThanOrEqual(1);
+    }
   });
 
-  it('treats a nonsense scale as 1 rather than dividing by it', () => {
-    const size = lowResSize(800, 600, 0);
-    expect(size.width).toBe(800);
-    expect(size.height).toBe(600);
+  it('keeps the M9 look: a game pixel within one screen pixel of what it was', () => {
+    for (const [name, w, h, dpr] of PHONES) {
+      const [cssW, cssH] = frame(w, h);
+      const quality = startQuality(dpr);
+      const grid = pixelGrid(cssW, cssH, dpr, quality);
+      const before = (choosePixelScale(cssW * quality) * dpr) / quality;
+      expect(Math.abs(grid.scale - before), name).toBeLessThanOrEqual(0.5);
+    }
+  });
+
+  it('still draws the scene at about a sixteenth of the screen pixels at 4:1', () => {
+    const grid = pixelGrid(375, 667, 2, 2);
+    expect(grid.scale).toBe(4);
+    const screen = grid.bufferWidth * grid.bufferHeight;
+    expect(pixelCount(grid.target)).toBeLessThanOrEqual(screen / 16);
+    expect(pixelCount(grid.target)).toBeGreaterThan(screen / 17);
+  });
+
+  it('makes game pixels bigger when the frame-rate watch steps down', () => {
+    const full = pixelGrid(390, 693, 3, 2);
+    const reduced = pixelGrid(390, 693, 3, 1.5);
+    expect(reduced.scale).toBeGreaterThan(full.scale);
+    expect(pixelCount(reduced.target)).toBeLessThan(pixelCount(full.target));
+  });
+
+  it('never shrinks the picture below the floor, however small the window', () => {
+    const grid = pixelGrid(20, 30, 1, 1);
+    expect(grid.target.width).toBe(RETRO.minTargetSize);
+    expect(grid.target.height).toBe(RETRO.minTargetSize);
+  });
+
+  it('treats a nonsense pixel ratio as 1 rather than dividing by it', () => {
+    for (const bad of [0, -2, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const grid = pixelGrid(400, 700, bad, bad);
+      expect(grid.bufferWidth).toBe(400);
+      expect(grid.bufferHeight).toBe(700);
+      expect(Number.isInteger(grid.scale)).toBe(true);
+    }
   });
 });
 

@@ -27,7 +27,8 @@ import { createSky, type Sky } from './sky';
 import { createScenery, type Scenery } from './scenery';
 import { createGround, type Ground } from './ground';
 import { createSplash, type Splash } from './splash';
-import { pixelCount } from './retro';
+import { pixelCount, pixelGrid } from './retro';
+import { setOutlineResolution } from './materials';
 import type { HitboxList } from '../game/hitboxes';
 import { curveX, curveY } from './curve';
 
@@ -149,20 +150,27 @@ export function createRenderer(canvas: HTMLCanvasElement, riderPair: RiderPair):
   scene.add(shadow);
 
   const quality = createQualityGovernor(window.devicePixelRatio);
-  const pixelPass: PixelPass = createPixelPass(renderer);
+  const pixelPass: PixelPass = createPixelPass(renderer, PALETTE.letterbox);
 
   const resize = (): void => {
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
     if (width === 0 || height === 0) return;
-    // Capped, and lowered further on a phone that cannot keep up (SPEC 13).
-    renderer.setPixelRatio(quality.pixelRatio);
-    renderer.setSize(width, height, false);
-    camera.aspect = width / height;
+    // Every game pixel is a whole number of real screen pixels on every
+    // phone, so nothing swims as it moves (pixelGrid in retro.ts). The canvas
+    // is drawn at the screen's own resolution for that, which is cheap: the
+    // scene itself still renders small. The frame-rate watch now makes the
+    // game pixels bigger when a phone cannot keep up (SPEC 13).
+    const grid = pixelGrid(width, height, window.devicePixelRatio, quality.pixelRatio);
+    renderer.setPixelRatio(1);
+    renderer.setSize(grid.bufferWidth, grid.bufferHeight, false);
+    // The shape of the picture actually drawn, which can differ from the
+    // canvas by the few border pixels.
+    camera.aspect = grid.target.width / grid.target.height;
     camera.updateProjectionMatrix();
-    // The low-res target follows the drawing buffer, not the CSS size, so one
-    // game pixel is the same number of real screen pixels on every device.
-    pixelPass.resize(width * quality.pixelRatio, height * quality.pixelRatio);
+    pixelPass.resize(grid);
+    // The outlines are measured in game pixels, so they need to know how many.
+    setOutlineResolution(grid.target.width, grid.target.height);
   };
 
   resize();

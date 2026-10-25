@@ -22,11 +22,12 @@ import {
   NearestFilter,
   type Object3D,
   RedFormat,
+  Vector2,
   type BufferGeometry,
   type Texture,
 } from 'three';
 import { PALETTE, RETRO } from '../config';
-import { fattenGeometry } from './geometry';
+import { smoothNormals } from './geometry';
 
 /**
  * The brightness ramp, built once and shared by every toon material: three
@@ -67,33 +68,81 @@ export function toonMaterial(options: {
   });
 }
 
-/** The material the outline hulls are drawn with: flat, unlit, outline colour. */
-export function outlineMaterial(): MeshBasicMaterial {
-  return new MeshBasicMaterial({ color: PALETTE.outline, side: BackSide });
+/**
+ * Shared by every outline material, so one resize reaches them all: how many
+ * game pixels wide the rim is, and how many game pixels the picture has.
+ */
+const outlineUniforms = {
+  uOutlinePixels: { value: RETRO.outlinePixels },
+  uResolution: { value: new Vector2(1, 1) },
+};
+
+/** Tells the outlines how big the game picture is. Call on every resize. */
+export function setOutlineResolution(width: number, height: number): void {
+  outlineUniforms.uResolution.value.set(width, height);
 }
 
 /**
- * How thick an outline should be for a shape of roughly this size, in units.
- * Tied to the shape's size so a tree and a coin do not get the same heavy rim.
+ * The shader lines that push the hull out by a fixed number of *game pixels*
+ * on screen, instead of a fixed distance in the world.
+ *
+ * A rim measured in the world gets thinner with distance; once it is thinner
+ * than one game pixel it is drawn on some frames and not on others, and the
+ * outline flickers. Measured on screen, it is the same width at every
+ * distance, so there is nothing to flicker.
  */
-export function outlineThickness(size: number): number {
-  return size * RETRO.outlineGrow;
+const OUTLINE_PUSH = `#include <project_vertex>
+{
+  vec3 outlineNormal = normal;
+  #ifdef USE_INSTANCING
+    outlineNormal = mat3( instanceMatrix ) * outlineNormal;
+  #endif
+  vec3 viewNormal = normalize( mat3( modelViewMatrix ) * outlineNormal );
+  vec2 clipNormal = ( projectionMatrix * vec4( viewNormal, 0.0 ) ).xy;
+  float clipLength = length( clipNormal );
+  if ( clipLength > 1e-6 ) {
+    gl_Position.xy += ( clipNormal / clipLength ) * ( 2.0 * uOutlinePixels / uResolution ) * gl_Position.w;
+  }
+}`;
+
+/**
+ * The material the outline hulls are drawn with: flat, unlit, outline colour,
+ * and a rim exactly `RETRO.outlinePixels` game pixels wide at any distance.
+ */
+export function outlineMaterial(): MeshBasicMaterial {
+  const material = new MeshBasicMaterial({ color: PALETTE.outline, side: BackSide });
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms['uOutlinePixels'] = outlineUniforms.uOutlinePixels;
+    shader.uniforms['uResolution'] = outlineUniforms.uResolution;
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nuniform float uOutlinePixels;\nuniform vec2 uResolution;',
+      )
+      .replace('#include <project_vertex>', OUTLINE_PUSH);
+  };
+  // Every outline compiles to the same program; this lets Three share it.
+  material.customProgramCacheKey = () => 'pixel-outline';
+  return material;
+}
+
+/**
+ * The shape an outline hull is drawn from: the mesh's own shape with its
+ * normals smoothed, so pushing it out along them keeps it closed at every
+ * corner instead of splitting into separate faces with gaps between them.
+ */
+export function outlineGeometry(geometry: BufferGeometry): BufferGeometry {
+  return smoothNormals(geometry);
 }
 
 /**
  * Gives a mesh a dark rim by hanging an inside-out copy of it off the mesh
  * itself, so the rim follows it everywhere without any per-frame work.
  *
- * The copy is a *fattened* geometry rather than a scaled-up mesh: scaling a
- * tall thin shape pushes its ends much further out than its sides, which
- * leaves the rim thick in one direction and thin in the other.
- *
  * @param mesh the mesh to outline; the rim becomes its child
- * @param size roughly how big the mesh is, in units, for the rim's thickness
  */
-export function addOutline(mesh: Mesh, size: number): Mesh {
-  const geometry: BufferGeometry = fattenGeometry(mesh.geometry, outlineThickness(size));
-  const outline = new Mesh(geometry, outlineMaterial());
+export function addOutline(mesh: Mesh): Mesh {
+  const outline = new Mesh(outlineGeometry(mesh.geometry), outlineMaterial());
   outline.name = 'outline';
   mesh.add(outline);
   return outline;

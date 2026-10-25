@@ -14,6 +14,7 @@
 import {
   CanvasTexture,
   ClampToEdgeWrapping,
+  LinearMipmapLinearFilter,
   NearestFilter,
   RepeatWrapping,
   SRGBColorSpace,
@@ -51,6 +52,28 @@ export function coinIconDataUrl(): string {
   const ctx = pixelCanvas(width, COIN_ICON.length);
   drawPixelMap(ctx, COIN_ICON, SPRITE_LEGEND);
   return ctx.canvas.toDataURL('image/png');
+}
+
+/**
+ * Lets a texture that stretches away from the camera calm down in the
+ * distance, while staying exactly as crisp up close.
+ *
+ * Without this, a far stretch of slide squeezes many texels into each game
+ * pixel and nearest filtering picks a different one every frame as the slide
+ * moves — that is the sparkle. Mipmaps hand the far stretch a pre-averaged,
+ * smaller copy instead, so it settles into calm colour. Magnification stays
+ * nearest, so nothing near the player is smoothed at all.
+ *
+ * Only for surfaces seen at a grazing angle (the slide). Sprites keep plain
+ * nearest filtering: averaging a cut-out sprite's alpha would make a distant
+ * coin fade in and out as it spins, which is the opposite of the point.
+ */
+function calmInTheDistance(texture: CanvasTexture): CanvasTexture {
+  texture.generateMipmaps = true;
+  texture.minFilter = LinearMipmapLinearFilter;
+  texture.magFilter = NearestFilter;
+  texture.anisotropy = RETRO.distantAnisotropy;
+  return texture;
 }
 
 /** Turns a finished canvas into a texture that is never smoothed or mipmapped. */
@@ -252,27 +275,23 @@ export function createSlideTexture(): CanvasTexture {
   ctx.fillStyle = colorToCss(PALETTE.water);
   ctx.fillRect(0, 0, width, height);
 
-  // A little deeper water and a little sparkle, dithered in, so the surface is
-  // not a flat slab of cyan. Both are kept sparse on purpose: at this pixel
-  // size a dense pattern reads as noise rushing past rather than as water.
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const value = bayer(x, y);
-      if (value > 0.9) px(ctx, x, y, colorToCss(PALETTE.waterDeep));
-      else if (value < 0.08) px(ctx, x, y, colorToCss(PALETTE.waterLight));
-    }
-  }
+  // No dither on the water. A scatter of single pixels looks lovely on the
+  // sky, which stands still, but on a surface rushing at the camera it is the
+  // worst thing to draw: every frame each speck lands on a different game
+  // pixel, and the eye reads that as flicker. Broad, calm shapes only.
 
-  // The light stripes that make the speed readable.
+  // The light stripes that make the speed readable, each with a band of the
+  // deeper colour under it, so the surface has some depth without any
+  // single-pixel detail.
   const stripeHeight = Math.max(1, Math.round(RETRO.water.stripeThickness * height));
   for (let i = 0; i < RETRO.water.stripes; i += 1) {
     const top = Math.round((i / RETRO.water.stripes) * height);
     ctx.fillStyle = colorToCss(PALETTE.waterLight);
     ctx.fillRect(0, top, width, stripeHeight);
-    // A dithered pixel edge under each stripe, so it is not a clean bar.
-    for (let x = 0; x < width; x += 1) {
-      if (bayer(x, top) > 0.5) px(ctx, x, top + stripeHeight, colorToCss(PALETTE.waterLight));
-    }
+    ctx.fillStyle = colorToCss(PALETTE.waterDeep);
+    ctx.globalAlpha = RETRO.water.shadeStrength;
+    ctx.fillRect(0, top + stripeHeight, width, stripeHeight);
+    ctx.globalAlpha = 1;
   }
 
   // Lane dividers: faint, just enough to read the three lanes.
@@ -299,7 +318,7 @@ export function createSlideTexture(): CanvasTexture {
     ctx.fillRect(side === 0 ? 0 : width - outlinePx, 0, outlinePx, height);
   }
 
-  const texture = toTexture(ctx);
+  const texture = calmInTheDistance(toTexture(ctx));
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;
   // A whole number of patterns per segment, so segment joins never show.
@@ -329,7 +348,9 @@ export function createGroundTexture(): CanvasTexture {
   ] as const) {
     ctx.fillRect(Math.round(x * size), Math.round(y * size), tuft, Math.round(tuft * 0.75));
   }
-  const texture = toTexture(ctx);
+  // The ground stretches away to the horizon just like the slide, so it gets
+  // the same treatment: calm in the distance, crisp up close.
+  const texture = calmInTheDistance(toTexture(ctx));
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;
   return texture;

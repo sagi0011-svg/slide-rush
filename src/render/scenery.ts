@@ -14,7 +14,7 @@
 
 import { Matrix4, Quaternion, Vector3, type InstancedMesh, type Scene } from 'three';
 import { RETRO } from '../config';
-import { createOutlinedInstances, createSceneryGeometry, scenerySize } from './factories';
+import { createOutlinedInstances, createSceneryGeometry } from './factories';
 import { curveX, curveY } from './curve';
 import {
   SCENERY_KINDS,
@@ -52,7 +52,7 @@ export function createScenery(scene: Scene): Scenery {
   const pools = new Map<SceneryKind, Pool>();
   for (const kind of SCENERY_KINDS) {
     const geometry = createSceneryGeometry(kind);
-    const { mesh, outline } = createOutlinedInstances(geometry, capacity, scenerySize(kind));
+    const { mesh, outline } = createOutlinedInstances(geometry, capacity);
     scene.add(mesh, outline);
     pools.set(kind, { mesh, outline, used: 0 });
   }

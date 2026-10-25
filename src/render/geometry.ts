@@ -78,32 +78,41 @@ export function mergeColoredParts(parts: readonly GeometryPart[]): BufferGeometr
 }
 
 /**
- * A copy of a geometry with every vertex pushed out along its normal, for the
- * outline hull.
+ * A copy of a geometry whose normals are averaged across every vertex that
+ * shares a position, for the outline hull.
  *
- * @param amount how far to push, in units
+ * The merged props are flat-shaded, so each face carries its own normal and
+ * the corners of a box have three different normals at the same point. Push
+ * those out and the faces drift apart, leaving gaps in the rim at every edge.
+ * Averaged, every copy of a corner moves the same way and the hull stays
+ * closed. Runs once per shape, at startup.
  */
-export function fattenGeometry(geometry: BufferGeometry, amount: number): BufferGeometry {
-  const source = geometry.index === null ? geometry : geometry.toNonIndexed();
-  const fattened = source.clone();
-  const position = fattened.getAttribute('position') as BufferAttribute;
-  let normal = fattened.getAttribute('normal') as BufferAttribute | undefined;
-  if (normal === undefined) {
-    fattened.computeVertexNormals();
-    normal = fattened.getAttribute('normal') as BufferAttribute;
+export function smoothNormals(geometry: BufferGeometry): BufferGeometry {
+  const smooth = geometry.index === null ? geometry.clone() : geometry.toNonIndexed();
+  if (smooth.getAttribute('normal') === undefined) smooth.computeVertexNormals();
+  const position = smooth.getAttribute('position') as BufferAttribute;
+  const normal = smooth.getAttribute('normal') as BufferAttribute;
+
+  // Positions are matched to a thousandth of a unit: the same corner, built
+  // by two faces, can differ in the last bits of a float.
+  const key = (i: number): string =>
+    `${Math.round(position.getX(i) * 1000)},${Math.round(position.getY(i) * 1000)},${Math.round(position.getZ(i) * 1000)}`;
+
+  const sums = new Map<string, [number, number, number]>();
+  for (let i = 0; i < position.count; i += 1) {
+    const k = key(i);
+    const sum = sums.get(k) ?? [0, 0, 0];
+    sum[0] += normal.getX(i);
+    sum[1] += normal.getY(i);
+    sum[2] += normal.getZ(i);
+    sums.set(k, sum);
   }
 
   for (let i = 0; i < position.count; i += 1) {
-    position.setXYZ(
-      i,
-      position.getX(i) + normal.getX(i) * amount,
-      position.getY(i) + normal.getY(i) * amount,
-      position.getZ(i) + normal.getZ(i) * amount,
-    );
+    const [x, y, z] = sums.get(key(i)) as [number, number, number];
+    const length = Math.hypot(x, y, z);
+    if (length > 1e-9) normal.setXYZ(i, x / length, y / length, z / length);
   }
-  position.needsUpdate = true;
-  // The hull is drawn unlit, so it needs no normals of its own; the ones it
-  // inherited are harmless and cost nothing to keep.
-  if (source !== geometry) source.dispose();
-  return fattened;
+  normal.needsUpdate = true;
+  return smooth;
 }

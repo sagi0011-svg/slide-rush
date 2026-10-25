@@ -34,8 +34,8 @@ import {
 import { COINS, OBSTACLES, PALETTE, PLAYER, POWERUPS, RETRO, RIDER, TRACK } from '../config';
 import type { ObstacleType } from '../game/obstacles';
 import type { PowerUpType } from '../game/powerups';
-import { fattenGeometry, mergeColoredParts, type GeometryPart } from './geometry';
-import { addOutline, outlineMaterial, outlineThickness, toonMaterial } from './materials';
+import { mergeColoredParts, type GeometryPart } from './geometry';
+import { addOutline, outlineGeometry, outlineMaterial, toonMaterial } from './materials';
 import type { SceneryKind } from './scenery-layout';
 import { RIDER_LAYOUT } from './rider-pose';
 import { GROUND_AHEAD, GROUND_BEHIND } from './ground-layout';
@@ -279,7 +279,7 @@ function highObstacleParts(): GeometryPart[] {
     },
     // A cream stripe across the banner.
     {
-      geometry: new BoxGeometry(size.w * 0.92, bannerHeight * 0.2, size.d * 0.5),
+      geometry: new BoxGeometry(size.w * 0.92, bannerHeight * 0.2, size.d * 0.6),
       matrix: at(0, -size.h / 2 + barHeight + bannerHeight * 0.5, 0),
       color: PALETTE.cream,
     },
@@ -303,7 +303,7 @@ function fullBlockerParts(): GeometryPart[] {
     });
     // A plank line across each crate.
     parts.push({
-      geometry: new BoxGeometry(size.w * 1.01, crateHeight * 0.14, size.d * 1.01),
+      geometry: new BoxGeometry(size.w * 1.04, crateHeight * 0.2, size.d * 1.04),
       matrix: at(0, y, 0),
       color: PALETTE.outline,
     });
@@ -311,7 +311,7 @@ function fullBlockerParts(): GeometryPart[] {
 
   // The hazard band across the middle crate: the "do not try it" signal.
   parts.push({
-    geometry: new BoxGeometry(size.w * 1.02, crateHeight * 0.4, size.d * 0.3),
+    geometry: new BoxGeometry(size.w * 1.06, crateHeight * 0.4, size.d * 0.3),
     matrix: at(0, 0, size.d / 2),
     color: PALETTE.orange,
   });
@@ -349,12 +349,6 @@ export function createObstacleGeometry(type: ObstacleType): BufferGeometry {
     case 'softObstacle':
       return mergeColoredParts(softObstacleParts());
   }
-}
-
-/** Roughly how big one obstacle is, in units, for its outline's thickness. */
-export function obstacleSize(type: ObstacleType): number {
-  const size = OBSTACLES.size[type];
-  return Math.max(size.w, size.h, size.d);
 }
 
 /** Where the middle of an obstacle's mesh sits above the slide, in units. */
@@ -421,7 +415,7 @@ export function createPickupMesh(type: PowerUpType): PickupProp {
     new TorusGeometry(radius * 0.82, radius * 0.16, 6, 14),
     toonMaterial({ color }),
   );
-  addOutline(ring, radius);
+  addOutline(ring);
   group.add(ring);
 
   const icon = new Mesh(
@@ -619,21 +613,6 @@ export function createSceneryGeometry(kind: SceneryKind): BufferGeometry {
   }
 }
 
-/** Roughly how big one kind of prop is, in units, for its outline thickness. */
-export function scenerySize(kind: SceneryKind): number {
-  switch (kind) {
-    case 'towerWarm':
-    case 'towerCool':
-      return 7;
-    case 'tree':
-      return 4;
-    case 'palm':
-      return 4;
-    case 'hut':
-      return 2.5;
-  }
-}
-
 // --- Instancing with an outline ---------------------------------------------
 
 /** An instanced prop and the inside-out copy that gives it its dark rim. */
@@ -649,22 +628,19 @@ export interface OutlinedInstances {
  *
  * @param geometry the merged, vertex-coloured shape
  * @param capacity the most copies that can ever be drawn at once
- * @param size roughly how big the shape is, in units, for the rim's thickness
  */
 export function createOutlinedInstances(
   geometry: BufferGeometry,
   capacity: number,
-  size: number,
 ): OutlinedInstances {
   const mesh = new InstancedMesh(geometry, toonMaterial({ vertexColors: true }), capacity);
   mesh.instanceMatrix.setUsage(DynamicDrawUsage);
   mesh.frustumCulled = false;
   mesh.count = 0;
 
-  // Fattened rather than scaled, so the rim is the same thickness all round;
-  // see materials.ts.
-  const fattened = fattenGeometry(geometry, outlineThickness(size));
-  const outline = new InstancedMesh(fattened, outlineMaterial(), capacity);
+  // The rim is a fixed number of game pixels wide on screen, whatever the
+  // shape's size or distance; see outlineMaterial in materials.ts.
+  const outline = new InstancedMesh(outlineGeometry(geometry), outlineMaterial(), capacity);
   outline.instanceMatrix.setUsage(DynamicDrawUsage);
   outline.frustumCulled = false;
   outline.count = 0;

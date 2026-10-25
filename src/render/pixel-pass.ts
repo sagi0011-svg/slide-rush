@@ -14,6 +14,7 @@
  */
 
 import {
+  Color,
   Mesh,
   MeshBasicMaterial,
   NearestFilter,
@@ -24,13 +25,16 @@ import {
   type Camera,
   type WebGLRenderer,
 } from 'three';
-import { choosePixelScale, lowResSize, type TargetSize } from './retro';
+import type { PixelGrid, TargetSize } from './retro';
 
 export interface PixelPass {
   /** Draws the scene into the small target, then blows it up onto the canvas. */
   render(scene: Scene, camera: Camera): void;
-  /** Resizes the target to match a drawing buffer of this size. */
-  resize(bufferWidth: number, bufferHeight: number): void;
+  /**
+   * Takes on a new layout: the target's size and where it lands on the
+   * canvas (see `pixelGrid` in retro.ts).
+   */
+  resize(grid: PixelGrid): void;
   /** The size of the low-resolution target, in game pixels. */
   readonly size: TargetSize;
   /** How many screen pixels wide one game pixel currently is. */
@@ -48,7 +52,13 @@ export interface PixelPass {
   dispose(): void;
 }
 
-export function createPixelPass(renderer: WebGLRenderer): PixelPass {
+/**
+ * @param renderer the renderer, set to a pixel ratio of 1: the grid works in
+ *   real device pixels, and a ratio would multiply the viewport by it again
+ * @param borderColor the colour of the few pixels round the edge that the
+ *   picture does not cover; the frame colour, so they read as its edge
+ */
+export function createPixelPass(renderer: WebGLRenderer, borderColor: number): PixelPass {
   const target = new WebGLRenderTarget(1, 1, {
     // Nearest both ways: the whole look depends on nothing being smoothed.
     magFilter: NearestFilter,
@@ -75,6 +85,11 @@ export function createPixelPass(renderer: WebGLRenderer): PixelPass {
 
   let size: TargetSize = { width: 1, height: 1 };
   let pixelScale = 1;
+  let viewport = { x: 0, y: 0, width: 1, height: 1 };
+  const border = new Color(borderColor);
+  // The scene's own clear colour, put back after the border is painted.
+  // Scratch, so nothing is allocated per frame (CLAUDE.md rule 7).
+  const sceneClear = new Color();
   let sceneDrawCalls = 0;
   let sceneTriangles = 0;
 
@@ -87,12 +102,23 @@ export function createPixelPass(renderer: WebGLRenderer): PixelPass {
       sceneDrawCalls = renderer.info.render.calls;
       sceneTriangles = renderer.info.render.triangles;
       renderer.setRenderTarget(null);
+
+      // Paint the whole canvas in the frame colour, then lay the picture on
+      // it at exactly target x scale pixels. A clear is not limited by the
+      // viewport, which is what makes the border come out right.
+      renderer.getClearColor(sceneClear);
+      const sceneAlpha = renderer.getClearAlpha();
+      renderer.setClearColor(border, 1);
+      renderer.clear();
+      renderer.setClearColor(sceneClear, sceneAlpha);
+      renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height);
       renderer.render(screenScene, screenCamera);
     },
 
-    resize(bufferWidth, bufferHeight) {
-      pixelScale = choosePixelScale(bufferWidth);
-      size = lowResSize(bufferWidth, bufferHeight, pixelScale);
+    resize(grid) {
+      pixelScale = grid.scale;
+      size = grid.target;
+      viewport = grid.viewport;
       target.setSize(size.width, size.height);
     },
 

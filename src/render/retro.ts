@@ -28,23 +28,90 @@ export interface TargetSize {
   height: number;
 }
 
+/** A rectangle on the canvas, in device pixels. */
+export interface Viewport {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Where the game picture lands on the screen, worked out once per resize. */
+export interface PixelGrid {
+  /** The drawing buffer: the canvas at the screen's own resolution. */
+  bufferWidth: number;
+  bufferHeight: number;
+  /** How many device pixels wide one game pixel is. Always a whole number. */
+  scale: number;
+  /** The low-resolution target the scene is drawn into, in game pixels. */
+  target: TargetSize;
+  /** Where the blown-up target sits in the buffer: centred, never stretched. */
+  viewport: Viewport;
+}
+
 /**
- * The low-resolution target for a drawing buffer of this size.
+ * Lays the game's pixels out so every one of them is exactly the same whole
+ * number of real screen pixels, on every phone.
  *
- * Both sides are whole numbers of game pixels — a fractional target would put
- * the upscale off the pixel grid and soften the very edges the look depends
- * on — and neither ever falls below `RETRO.minTargetSize`, so a tiny window
- * cannot leave the game with a handful of pixels to draw into.
+ * That is the point of the whole function. In M9 the picture was stretched to
+ * fill the canvas, and the canvas was then stretched again by the browser to
+ * the screen. On a phone whose pixel ratio is not a whole number (2.625 on a
+ * Pixel 7, 2.75 on many Xiaomis) that made one game pixel 5.25 screen pixels
+ * wide — so some came out 5 wide and some 6, and as anything moved its pixels
+ * changed width under it. The eye reads that as the picture swimming.
  *
- * @param bufferWidth width of the drawing buffer, in screen pixels
- * @param bufferHeight height of the drawing buffer, in screen pixels
- * @param scale how many screen pixels wide one game pixel is
+ * So now the canvas is drawn at the screen's own resolution, one game pixel is
+ * a whole number of those screen pixels, and the picture is placed at exactly
+ * that size in the middle of the canvas. Whatever does not divide evenly is a
+ * border of at most `scale - 1` pixels round the edge, in the frame colour.
+ *
+ * Drawing the canvas at full resolution costs nothing worth counting: the 3D
+ * scene still renders into the small target, and the canvas only receives one
+ * flat copy of it.
+ *
+ * @param cssWidth the canvas width, in CSS pixels
+ * @param cssHeight the canvas height, in CSS pixels
+ * @param devicePixelRatio the screen's own ratio of device to CSS pixels
+ * @param qualityRatio the resolution the frame-rate watch currently allows
+ *   (src/render/quality.ts). When it steps down, game pixels get bigger, so
+ *   there are fewer of them to fill — the same job it always had.
  */
-export function lowResSize(bufferWidth: number, bufferHeight: number, scale: number): TargetSize {
-  const safeScale = scale >= 1 ? scale : 1;
-  const width = Math.max(RETRO.minTargetSize, Math.round(bufferWidth / safeScale));
-  const height = Math.max(RETRO.minTargetSize, Math.round(bufferHeight / safeScale));
-  return { width, height };
+export function pixelGrid(
+  cssWidth: number,
+  cssHeight: number,
+  devicePixelRatio: number,
+  qualityRatio: number,
+): PixelGrid {
+  const dpr = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
+  const quality =
+    Number.isFinite(qualityRatio) && qualityRatio > 0 ? Math.min(qualityRatio, dpr) : dpr;
+  const bufferWidth = Math.max(1, Math.round(cssWidth * dpr));
+  const bufferHeight = Math.max(1, Math.round(cssHeight * dpr));
+
+  // The game pixel M9 chose, measured in the old capped buffer's pixels, then
+  // turned into real device pixels and rounded to a whole number. That keeps
+  // the look within one device pixel of what it was, and makes it exact.
+  const chosen = choosePixelScale(cssWidth * quality);
+  const scale = Math.max(1, Math.round((chosen * dpr) / quality));
+
+  const target = {
+    width: Math.max(RETRO.minTargetSize, Math.floor(bufferWidth / scale)),
+    height: Math.max(RETRO.minTargetSize, Math.floor(bufferHeight / scale)),
+  };
+  const width = target.width * scale;
+  const height = target.height * scale;
+  return {
+    bufferWidth,
+    bufferHeight,
+    scale,
+    target,
+    viewport: {
+      x: Math.floor((bufferWidth - width) / 2),
+      y: Math.floor((bufferHeight - height) / 2),
+      width,
+      height,
+    },
+  };
 }
 
 /**

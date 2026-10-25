@@ -180,7 +180,7 @@ export const CAMERA = {
   /** Vertical field of view, in degrees. */
   fov: 60,
   /** Near and far clipping planes, in units. */
-  near: 0.1,
+  near: 0.5,
   far: 220,
   /** Camera offset behind and above the player, in units. */
   offset: { x: 0, y: 4.4, z: 7.2 },
@@ -589,14 +589,24 @@ export const RETRO = {
   toonSteps: 3,
   /**
    * The dark outline is an inverted hull: the same shape drawn inside out in
-   * the outline colour, a little larger, so its back faces show as a rim
-   * around the front ones. It is this rather than a full-screen edge pass
+   * the outline colour and pushed out a little, so its back faces show as a
+   * rim around the front ones. It is this rather than a full-screen edge pass
    * because it needs no second render target and no depth read, which is what
    * makes an edge pass expensive on a phone.
+   *
+   * The push is measured on screen, in game pixels, not in the world: a rim
+   * measured in the world thins with distance until it is less than a pixel
+   * and flickers in and out. This many game pixels wide, at every distance.
    */
-  outlineGrow: 0.055,
+  outlinePixels: 1,
   /** How many pixels of texture one unit of the world gets. */
   texturePixelsPerUnit: 8,
+  /**
+   * Anisotropic filtering for surfaces seen at a grazing angle (the slide), so
+   * they stay readable into the distance instead of sparkling or smearing.
+   * Three.js clamps it to what the device supports.
+   */
+  distantAnisotropy: 8,
   /** The sunset sky, painted once into a texture (section 1). */
   sky: {
     /** Size of the painted sky, in pixels. Small on purpose: it is upscaled. */
@@ -660,6 +670,8 @@ export const RETRO = {
     rimWidth: 0.55,
     /** Thickness of the dark outline along the rim, in units. */
     rimOutline: 0.14,
+    /** How strong the deeper-water band under each stripe is, 0..1. */
+    shadeStrength: 0.35,
   },
   /** The spinning pixel coin: a billboard that flips through its frames. */
   coin: {

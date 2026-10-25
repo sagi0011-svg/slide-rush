@@ -25,9 +25,12 @@ Reference: the owner's other game "ספלאש" (screenshot in chat). Pixel art, 
 
 **Pixel rendering**
 - Render the 3D scene to a low-resolution target (config `RETRO.pixelScale`, default 4 = each game pixel is 4×4 screen pixels; 3 on large screens) and upscale with nearest-neighbour filtering. Turn off antialias.
-- All textures use nearest filtering, no mipmaps.
+  - *Changed 2026-10-25 (pixel-shimmer fix, approved by Sagi):* every game pixel must be a **whole number of real device pixels**. The canvas is drawn at the screen's own resolution and the picture is placed at exactly target × scale, centred, with a border of under one game pixel in the frame colour. Stretching it to fill made a game pixel 5.25 screen pixels on a Pixel 7, so pixels changed width as they moved and the picture swam.
+- All textures use nearest filtering, no mipmaps — **except surfaces that stretch away into the distance (the slide and the ground)**, which keep nearest magnification but get mipmaps, linear minification and anisotropic filtering (`RETRO.distantAnisotropy`). *Changed 2026-10-25, approved by Sagi:* with nearest minification the far stretch of slide picked a different texel every frame and sparkled. Sprites and the sky stay nearest with no mipmaps.
+- No single-pixel dither on any surface that moves toward the camera. Dither on the sky, which stands still, is fine; on the water it read as flicker.
 - Flat "toon" shading: 3 brightness steps max (gradient map), no smooth gradients anywhere.
 - Dark outlines (`outline` colour) on obstacles, coins, pickups and scenery (inverted-hull or edge pass — pick the cheaper one on mobile and say which).
+  - *Decided:* inverted hull for solid shapes (no second render target, no depth read), painted into the pixel art for flat sprites. The hull is pushed out by a fixed **`RETRO.outlinePixels` game pixels on screen**, not a distance in the world — a world-sized rim thinned below one pixel with distance and flickered in and out.
 - Sky: dithered 2-colour gradient + big pixel sun + 2 layers of purple hills (parallax, never move closer).
 - Scenery on both sides of the slide, pooled and recycled like track segments: slide towers with coloured spiral slides (red/orange and blue/sky-blue like the reference), round pixel trees, palms, small huts.
 - Ground (M12): one strip of dithered pixel grass under the slide and the scenery, bent to follow the slide and faded into the sunset by the fog (`RETRO.ground`). Before it, the props stood on the sky.
